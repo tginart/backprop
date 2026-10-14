@@ -1,0 +1,7 @@
+{
+  "host": "https://<FOUNDRY_HOST>",
+  "deployment_state": "state.json",
+  "resource_state": "../backend/state.json",
+  "secret_manager": null,
+  "bootstrap": null
+}

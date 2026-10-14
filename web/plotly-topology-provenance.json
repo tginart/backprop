@@ -1,0 +1,145 @@
+{
+  "version": "4.1.1",
+  "source_license": "Plotly MIT distribution; derived UN geodata and Natural Earth datasets, see web/DESIGN.md",
+  "assets": [
+    {
+      "file": "africa_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/africa_110m.json",
+      "sha256": "0364f4b9a6b16dc03ebca91c9d5eefefb4f9e6eb8c35d6263592f8bb4b647136",
+      "size": 36570
+    },
+    {
+      "file": "africa_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/africa_50m.json",
+      "sha256": "eb59be3a8d250e20db5ed069057f810f765444a42eb433fc4d9907e0747ae274",
+      "size": 121035
+    },
+    {
+      "file": "antarctica_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/antarctica_110m.json",
+      "sha256": "714c979ddb04b034e7749b829a18ea74a6d9ea27aeab5bf04e827f86b920fdb1",
+      "size": 14654
+    },
+    {
+      "file": "antarctica_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/antarctica_50m.json",
+      "sha256": "a6c65b034734110bc46aa057e3ff632abd85fa19120be4c188c08525c2958e78",
+      "size": 41238
+    },
+    {
+      "file": "asia_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/asia_110m.json",
+      "sha256": "cd32cc41ffe375e9b026159cb5b3acaeda5d802c2154463b26d22587d2661ef3",
+      "size": 79956
+    },
+    {
+      "file": "asia_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/asia_50m.json",
+      "sha256": "4a3c9f6152c2e360ef1b4637efcf31a62c7f9dfe05222f9eaac817c054d3b84a",
+      "size": 373984
+    },
+    {
+      "file": "europe_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/europe_110m.json",
+      "sha256": "11dd75b5c85db2339c5c0b314612a19374216c64b0090d192de31f841785d016",
+      "size": 38133
+    },
+    {
+      "file": "europe_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/europe_50m.json",
+      "sha256": "411738804af5616439685fece8d9e57ff4b6e65df1c5cd4cb00e394a4807c9d5",
+      "size": 192815
+    },
+    {
+      "file": "north-america_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/north-america_110m.json",
+      "sha256": "f52f86860953f710613809587f59a855e8074a2d2eaa25ef913ef3a4b61b0c8e",
+      "size": 73900
+    },
+    {
+      "file": "north-america_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/north-america_50m.json",
+      "sha256": "084baaa2363868e675cdd64c1d1f3a9be5c9ec7809dea8dd61cb3e10825df92c",
+      "size": 583805
+    },
+    {
+      "file": "oceania_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/oceania_110m.json",
+      "sha256": "50dbce96b3a3e1be04beda1a80101eb9bcd0558cf330bdd3f6b98d61ff781cea",
+      "size": 44211
+    },
+    {
+      "file": "oceania_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/oceania_50m.json",
+      "sha256": "28357f27a07e1a67e0ae1bae9210dc8f294d9b2981161678728ae44cb285dda7",
+      "size": 320430
+    },
+    {
+      "file": "south-america_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/south-america_110m.json",
+      "sha256": "c21f1509ddb9fea737f898c9fab4d43a4060e9d214712a5acaede11cd8915482",
+      "size": 22523
+    },
+    {
+      "file": "south-america_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/south-america_50m.json",
+      "sha256": "694c425d6411e3f5f5e77dcd6b7722b6e47329565141c02a2f241ccd3c873e57",
+      "size": 165124
+    },
+    {
+      "file": "usa_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/usa_110m.json",
+      "sha256": "fc83e70129aa4911c0ab6e42faadd854e4ec1da71a095785c294e999e34c4d58",
+      "size": 68514
+    },
+    {
+      "file": "usa_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/usa_50m.json",
+      "sha256": "37670105d23a569a56a8ad9da01fdc45582bb66bd6d4f58b22175fa29c98c92f",
+      "size": 304145
+    },
+    {
+      "file": "world_110m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/world_110m.json",
+      "sha256": "e1bf51740ad28396265e52123ea7315d692f112664ab2cb0f1ea76a96fe1bb0a",
+      "size": 285045
+    },
+    {
+      "file": "world_50m.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/dist/topojson/world_50m.json",
+      "sha256": "20a160dbd13dd2bfa22f1858c0ae657860ea066d889563c51da383fd9696d759",
+      "size": 1692310
+    }
+  ],
+  "related_assets": [
+    {
+      "file": "plotly-strict-3.6.0.min.js",
+      "source": "https://cdn.plot.ly/plotly-strict-3.6.0.min.js",
+      "sha256": "8f094d412acc077a1112bef047fdd49efaee28b5d3036bf7b12267d8e03da916",
+      "size": 5187561,
+      "transformation": "Unchanged"
+    },
+    {
+      "file": "plotly-map-sat.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/src/plots/map/styles/arcgis-sat.js",
+      "sha256": "d8c039f9f99570e96ba70ab847192e938a2708874456d9bb8ec1149b6baf4ea7",
+      "size": 1417,
+      "transformation": "module.exports object serialized as JSON without value changes"
+    },
+    {
+      "file": "plotly-map-hybrid.json",
+      "source": "https://raw.githubusercontent.com/plotly/plotly.js/v4.1.1/src/plots/map/styles/arcgis-sat-hybrid.js",
+      "sha256": "3e2f01f549dad7899abafd7fe59522c09e88f4b06209b645740decea962d57bb",
+      "size": 39195,
+      "transformation": "module.exports object serialized as JSON without value changes"
+    },
+    {
+      "file": "plotly-map-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/go2garret/maps/v1.0.0/LICENSE",
+      "sha256": "715270ae098fe85835883b32d508807df022774b752b1fa55b07ef414b1b26dd",
+      "size": 1063,
+      "transformation": "Unchanged"
+    }
+  ],
+  "topology_build_source": "https://github.com/plotly/plotly.js/blob/v4.1.1/topojson/config.mjs"
+}

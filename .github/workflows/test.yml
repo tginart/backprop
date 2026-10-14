@@ -1,0 +1,41 @@
+name: Public release verification
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wandb/wandb
+          ref: e5ec9dc9236d1a4fbb9fe7c0795bbccdff1e0e77
+          path: .reference/wandb/source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python -m pip install build setuptools 'pydantic>=2.12,<3' numpy Pillow matplotlib plotly PyYAML xxhash google-re2 wandb==0.30.0
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/browser" --no-save playwright@1.64.0
+          "$RUNNER_TEMP/browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: |
+          mkdir -p "$RUNNER_TEMP/public-source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/public-source"
+          python "$RUNNER_TEMP/public-source/tools_verify_release.py" --output "$RUNNER_TEMP/release-check" --browser
+        env:
+          BACKPROP_REFERENCE_SOURCE: ${{ github.workspace }}/.reference/wandb/source
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-${{ matrix.python }}
+          path: ${{ runner.temp }}/release-check

@@ -1,0 +1,239 @@
+{
+  "events": [
+    {
+      "schema_version": 1,
+      "event_id": "dceb977703f74ebca728c06d92b97737",
+      "timestamp": "2026-10-04T04:29:14.264613+00:00",
+      "run_id": "probe",
+      "project": "plotly-resources",
+      "entity": "",
+      "type": "history",
+      "payload": {
+        "step": 0,
+        "metrics": {
+          "resource_map": {
+            "_type": "plotly",
+            "spec": {
+              "data": [
+                {
+                  "type": "scattermap",
+                  "lon": [
+                    0
+                  ],
+                  "lat": [
+                    0
+                  ]
+                }
+              ],
+              "layout": {
+                "images": [
+                  {
+                    "source": "http://127.0.0.1:57624/image.png",
+                    "xref": "paper",
+                    "yref": "paper",
+                    "x": 0,
+                    "y": 1,
+                    "sizex": 0.2,
+                    "sizey": 0.2
+                  }
+                ],
+                "map": {
+                  "style": "http://127.0.0.1:57624/style.json",
+                  "zoom": 1,
+                  "center": {
+                    "lon": 0,
+                    "lat": 0
+                  }
+                }
+              }
+            },
+            "resources": [
+              {
+                "path": [
+                  "layout",
+                  "images",
+                  0,
+                  "source"
+                ],
+                "kind": "image",
+                "file": {
+                  "name": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                  "sha256": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958",
+                  "size": 75,
+                  "mime_type": "image/png",
+                  "path": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958/e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                  "digest": "m7nZPLdrOEJEsybs2d8s6g=="
+                }
+              },
+              {
+                "path": [
+                  "layout",
+                  "map",
+                  "style"
+                ],
+                "kind": "json",
+                "file": {
+                  "name": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690.json",
+                  "sha256": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690",
+                  "size": 199,
+                  "mime_type": "application/json",
+                  "path": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690/595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690.json",
+                  "digest": "m4loBiqyVsSeDAWmlxC2gw=="
+                },
+                "resources": [
+                  {
+                    "path": [
+                      "sources",
+                      "area",
+                      "data"
+                    ],
+                    "kind": "json",
+                    "file": {
+                      "name": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c.json",
+                      "sha256": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c",
+                      "size": 42,
+                      "mime_type": "application/json",
+                      "path": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c/ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c.json",
+                      "digest": "u6rlE0pcywvkeZCtT7/mwQ=="
+                    }
+                  },
+                  {
+                    "path": [
+                      "sources",
+                      "background",
+                      "url"
+                    ],
+                    "kind": "image",
+                    "file": {
+                      "name": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                      "sha256": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958",
+                      "size": 75,
+                      "mime_type": "image/png",
+                      "path": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958/e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                      "digest": "m7nZPLdrOEJEsybs2d8s6g=="
+                    }
+                  }
+                ],
+                "base_url": "http://127.0.0.1:57624/style.json"
+              }
+            ]
+          }
+        },
+        "summary": {
+          "resource_map": {
+            "_type": "plotly",
+            "spec": {
+              "data": [
+                {
+                  "type": "scattermap",
+                  "lon": [
+                    0
+                  ],
+                  "lat": [
+                    0
+                  ]
+                }
+              ],
+              "layout": {
+                "images": [
+                  {
+                    "source": "http://127.0.0.1:57624/image.png",
+                    "xref": "paper",
+                    "yref": "paper",
+                    "x": 0,
+                    "y": 1,
+                    "sizex": 0.2,
+                    "sizey": 0.2
+                  }
+                ],
+                "map": {
+                  "style": "http://127.0.0.1:57624/style.json",
+                  "zoom": 1,
+                  "center": {
+                    "lon": 0,
+                    "lat": 0
+                  }
+                }
+              }
+            },
+            "resources": [
+              {
+                "path": [
+                  "layout",
+                  "images",
+                  0,
+                  "source"
+                ],
+                "kind": "image",
+                "file": {
+                  "name": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                  "sha256": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958",
+                  "size": 75,
+                  "mime_type": "image/png",
+                  "path": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958/e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                  "digest": "m7nZPLdrOEJEsybs2d8s6g=="
+                }
+              },
+              {
+                "path": [
+                  "layout",
+                  "map",
+                  "style"
+                ],
+                "kind": "json",
+                "file": {
+                  "name": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690.json",
+                  "sha256": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690",
+                  "size": 199,
+                  "mime_type": "application/json",
+                  "path": "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690/595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690.json",
+                  "digest": "m4loBiqyVsSeDAWmlxC2gw=="
+                },
+                "resources": [
+                  {
+                    "path": [
+                      "sources",
+                      "area",
+                      "data"
+                    ],
+                    "kind": "json",
+                    "file": {
+                      "name": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c.json",
+                      "sha256": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c",
+                      "size": 42,
+                      "mime_type": "application/json",
+                      "path": "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c/ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c.json",
+                      "digest": "u6rlE0pcywvkeZCtT7/mwQ=="
+                    }
+                  },
+                  {
+                    "path": [
+                      "sources",
+                      "background",
+                      "url"
+                    ],
+                    "kind": "image",
+                    "file": {
+                      "name": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                      "sha256": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958",
+                      "size": 75,
+                      "mime_type": "image/png",
+                      "path": "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958/e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png",
+                      "digest": "m7nZPLdrOEJEsybs2d8s6g=="
+                    }
+                  }
+                ],
+                "base_url": "http://127.0.0.1:57624/style.json"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "files": {
+    "e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958/e6584fca16e5babc2e09c2e06345944fcf30c9813fdf6bd3f93375b54c0b4958.png": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGOMW32LgYGBiQEMABZSAefaaOKmAAAAAElFTkSuQmCC",
+    "595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690/595c0abfc7831ce924f37a7b6f06b579454e0e572f57a9dfd7b909d9e9f78690.json": "eyJ2ZXJzaW9uIjogOCwgInNvdXJjZXMiOiB7ImFyZWEiOiB7InR5cGUiOiAiZ2VvanNvbiIsICJkYXRhIjogInJlZ2lvbi5qc29uIn0sICJiYWNrZ3JvdW5kIjogeyJ0eXBlIjogImltYWdlIiwgInVybCI6ICJpbWFnZS5wbmciLCAiY29vcmRpbmF0ZXMiOiBbWy0xLCAxXSwgWzEsIDFdLCBbMSwgLTFdLCBbLTEsIC0xXV19fSwgImxheWVycyI6IFtdfQ==",
+    "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c/ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c.json": "eyJ0eXBlIjoiRmVhdHVyZUNvbGxlY3Rpb24iLCJmZWF0dXJlcyI6W119"
+  }
+}

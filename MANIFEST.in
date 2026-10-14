@@ -1,0 +1,9 @@
+include README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md
+recursive-include licenses *
+recursive-include sdk/backprop *.json
+prune tests
+prune web
+prune docs
+prune deploy
+prune backend
+prune examples

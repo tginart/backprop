@@ -1,0 +1,108 @@
+{
+  "_type": "table",
+  "column_types": [
+    {
+      "fields": {
+        "keys": {
+          "item_type": {
+            "column": "key",
+            "optional": false,
+            "table_id": "21fd93082b3f4570a84ba0fb5762f46d",
+            "table_path": "media/tables/ref-0.table.json",
+            "wb_type": "foreignKey"
+          },
+          "optional": false,
+          "wb_type": "list"
+        },
+        "maybe": {
+          "optional": true,
+          "options": [
+            {
+              "optional": false,
+              "table_id": "21fd93082b3f4570a84ba0fb5762f46d",
+              "table_path": "media/tables/ref-0.table.json",
+              "wb_type": "foreignIndex"
+            },
+            {
+              "optional": false,
+              "wb_type": "none"
+            }
+          ],
+          "wb_type": "union"
+        }
+      },
+      "optional": true,
+      "upstream_schema": {
+        "params": {
+          "allowed_types": [
+            {
+              "wb_type": "none"
+            },
+            {
+              "params": {
+                "type_map": {
+                  "keys": {
+                    "params": {
+                      "element_type": {
+                        "native_table_ref": "path",
+                        "params": {
+                          "col_name": "key",
+                          "table": "media/tables/ref-0.table.json"
+                        },
+                        "wb_type": "foreignKey"
+                      },
+                      "length": 1
+                    },
+                    "wb_type": "list"
+                  },
+                  "maybe": {
+                    "params": {
+                      "allowed_types": [
+                        {
+                          "native_table_ref": "path",
+                          "params": {
+                            "table": "media/tables/ref-0.table.json"
+                          },
+                          "wb_type": "foreignIndex"
+                        },
+                        {
+                          "wb_type": "none"
+                        }
+                      ]
+                    },
+                    "wb_type": "union"
+                  }
+                }
+              },
+              "wb_type": "typedDict"
+            }
+          ]
+        },
+        "wb_type": "union"
+      },
+      "wb_type": "dictionary"
+    }
+  ],
+  "columns": [
+    "nested"
+  ],
+  "data": [
+    [
+      {
+        "keys": [
+          "a"
+        ],
+        "maybe": 0
+      }
+    ],
+    [
+      {
+        "keys": [
+          "a"
+        ],
+        "maybe": null
+      }
+    ]
+  ],
+  "log_mode": "IMMUTABLE"
+}

@@ -1,0 +1,8 @@
+{
+  "host": "https://<FOUNDRY_HOST>",
+  "project_rid": "<PROJECT_RID>",
+  "application_rid": "<APPLICATION_RID>",
+  "client_id": "<PUBLIC_OAUTH_CLIENT_ID>",
+  "app_url": "https://<APP_HOST>/",
+  "organization_rid": "<ORGANIZATION_RID>"
+}

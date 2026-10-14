@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+.env
+.env.*
+!*.example
+.backprop/
+/wandb/
+/.wandb/
+.reference/
+*.zip
+test-results/
+deploy/*backup.json
+web/config.json
+backend/verification.json
+backend/frontend-verification.json
+# Personal installation settings and generated resource handles stay local.
+*.local.json
+/deploy/state.json
+/backend/state.json

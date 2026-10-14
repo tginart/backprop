@@ -1,0 +1,27 @@
+{
+  "vega-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/vega/vega/main/LICENSE",
+    "sha256": "63727832aaf62004a2b249c933e327f3c90caf49e41a72f4bf436edf632cbda8"
+  },
+  "vega-lite-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/vega/vega-lite/main/LICENSE",
+    "sha256": "f618900fd0d64046963b29f40590cdd1e341a2f41449f99110d82fd81fea808c"
+  },
+  "vega-interpreter-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/vega/vega/main/LICENSE",
+    "sha256": "63727832aaf62004a2b249c933e327f3c90caf49e41a72f4bf436edf632cbda8"
+  },
+  "vega-6.2.0.min.js": {
+    "url": "https://registry.npmjs.org/vega/-/vega-6.2.0.tgz",
+    "sha256": "ea6a5936381d06f912466354e2b6a20eb66c4d41f1ca9dff1e0236dfee6ee392"
+  },
+  "vega-interpreter-2.2.1.min.js": {
+    "url": "https://registry.npmjs.org/vega-interpreter/-/vega-interpreter-2.2.1.tgz",
+    "sha256": "d06c5fe783692a68d104abd6172f6e9e17b2ac69c09ad80df01cdd663ec2541d",
+    "build": "esbuild@0.27.2 index.js --bundle --format=iife --global-name=vegaInterpreter --minify"
+  },
+  "vega-lite-6.4.1.min.js": {
+    "url": "https://registry.npmjs.org/vega-lite/-/vega-lite-6.4.1.tgz",
+    "sha256": "6d5035fdd429b4bc6f91f3754426c3f516f3dbd8e08b105cfc2496bed4ebd254"
+  }
+}

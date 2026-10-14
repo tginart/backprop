@@ -1,0 +1,9 @@
+{
+  "host": "https://<FOUNDRY_HOST>",
+  "project_rid": "<PROJECT_RID>",
+  "branch": "master",
+  "stream_dataset_rid": "<EVENT_STREAM_DATASET_RID>",
+  "media_dataset_rid": "<MEDIA_DATASET_RID>",
+  "stream_view_rid": "<STREAM_VIEW_RID>",
+  "app_url": "https://<APP_HOST>/"
+}

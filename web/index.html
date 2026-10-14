@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="referrer" content="no-referrer">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Backprop: experiment logging and visualization on Palantir Foundry.">
+  <title>Backprop · Experiment workspace</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./workspace.css">
+</head>
+<body>
+  <div id="app"><main class="workspace-loading initial-loading" aria-busy="true"><section class="loading-card" role="status"><div class="loading-brand"><img src="./favicon.svg" alt=""><span>BACKPROP <span>/ EXPERIMENTS</span></span></div><h1>Opening your project</h1><p>Your runs, charts, and logged data in one place.</p><div class="loading-footer"><span class="loading-spinner" aria-hidden="true"></span><div><p class="loading-status">Connecting to Foundry…</p><p class="loading-note">Your experiments will be ready here shortly.</p></div></div></section></main></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="detail-dialog"></dialog>
+  <dialog id="chart-dialog"></dialog>
+  <dialog id="panel-dialog"></dialog>
+  <dialog id="inspect-dialog"></dialog>
+  <dialog id="table-dialog"></dialog>
+  <dialog id="control-dialog"></dialog>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

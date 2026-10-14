@@ -1,0 +1,9 @@
+Backprop
+Copyright 2026 Backprop contributors
+
+This project is distributed under Apache-2.0.
+This project includes components with separate licenses and provenance; see
+THIRD_PARTY_NOTICES.md, licenses/, and backprop/integration/upstream-sources.json
+(in SDK installations) or sdk/backprop/integration/upstream-sources.json (source).
+Weights & Biases, CoreWeave, Palantir, Plotly and Vega names are retained for
+compatibility identification and attribution; no endorsement is implied.
