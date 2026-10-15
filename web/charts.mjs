@@ -1,7 +1,8 @@
 /**
  * Architecture: numeric series -> domains -> SVG -> local pointer interaction.
  * The renderer is dependency free and makes no network calls. Hover uses the
- * original points. Dense paths keep min/max points in each bucket so spikes
+ * recorded points near the cursor and interpolates between them elsewhere.
+ * Dense paths keep min/max points in each bucket so spikes
  * remain visible. Zoom changes only displayed axis ranges, never stored data.
  * Main callers: app.mjs metric and rich-data panels.
  */
@@ -56,7 +57,7 @@ export function chartSpec(series, options = {}) {
   const all = valid.flatMap(s => s.points);
   if (!all.length) return null;
   const halfWidth = p => options.kind === 'bar' ? (p.width || 1) / 2 : 0;
-  const extents = (p, axis) => [p[axis], ...(p[axis === 'x' ? 'errorX' : 'errorY'] || []), ...(axis === 'y' ? p.band || [] : [])].filter(value => finite(value) && (!(axis === 'x' ? options.logX : options.logScale) || value > 0));
+  const extents = (p, axis) => [p[axis], ...(p[axis === 'x' ? 'errorX' : 'errorY'] || []), ...(axis === 'y' ? p.band || [] : []), ...(axis === 'y' && options.smoothing && options.showRaw !== false ? [p.raw] : [])].filter(value => finite(value) && (!(axis === 'x' ? options.logX : options.logScale) || value > 0));
   const xMin = options.zoom?.[0] ?? options.xMin ?? all.reduce((min, p) => Math.min(min, ...extents(p, 'x').map(x => x + (p.offset || 0) - halfWidth(p))), Infinity);
   const xMax = options.zoom?.[1] ?? options.xMax ?? all.reduce((max, p) => Math.max(max, ...extents(p, 'x').map(x => x + (p.offset || 0) + halfWidth(p))), -Infinity);
   const shown = all.filter(p => p.x >= xMin && p.x <= xMax);
@@ -78,9 +79,52 @@ const sy = (value, spec) => T + (1 - ((spec.logScale ? Math.log10(value) : value
 const xValue = (fraction, spec) => spec.logX ? 10 ** (Math.log10(spec.xMin) + fraction * (Math.log10(spec.xMax) - Math.log10(spec.xMin))) : spec.xMin + fraction * (spec.xMax - spec.xMin);
 const path = (points, spec, raw = false) => {
   const segments = [];
-  for (const point of points) { if (!segments.length || point.breakBefore) segments.push([]); segments.at(-1).push(point); }
-  return segments.map(segment => decimate(segment).map((p, i) => `${i ? 'L' : 'M'}${sx(p.x, spec).toFixed(2)},${sy(raw ? p.raw ?? p.y : p.y, spec).toFixed(2)}`).join(' ')).join(' ');
+  for (const point of points) { if (!segments.length || point.breakBefore) segments.push([]); segments.at(-1).push(raw ? {...point, y:point.raw ?? point.y} : point); }
+  return segments.map(segment => decimate(segment).map((p, i) => `${i ? 'L' : 'M'}${sx(p.x, spec).toFixed(2)},${sy(p.y, spec).toFixed(2)}`).join(' ')).join(' ');
 };
+
+const lowerBound = (values, target, key = value => value) => {
+  let lo = 0, hi = values.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (key(values[mid]) < target) lo = mid + 1; else hi = mid; }
+  return lo;
+};
+
+/** A small screen-space snap zone leaves most of each segment freely readable.
+ * Main caller: pointer inspection. Dense samples cap their attraction to a fifth
+ * of the adjacent spacing; the radius is supplied in SVG units after scaling.
+ */
+export function snapChartX(xs, x, spec, radius = 6) {
+  const index = lowerBound(xs, valueAtPlotX(x, spec));
+  const candidates = [index - 1, index].filter(i => i >= 0 && i < xs.length);
+  const nearest = candidates.sort((a,b) => Math.abs(sx(xs[a],spec)-x)-Math.abs(sx(xs[b],spec)-x))[0];
+  if (nearest === undefined) return x;
+  const position = sx(xs[nearest],spec);
+  const spacing = Math.min(...[nearest-1,nearest+1].filter(i=>i>=0 && i<xs.length).map(i=>Math.abs(sx(xs[i],spec)-position)));
+  return Math.abs(position-x) <= Math.min(radius,spacing*.2) ? position : x;
+}
+const valueAtPlotX = (x, spec) => xValue((x - plotLeft(spec)) / plotWidth(spec), spec);
+
+/** Sample the drawn linear segment without inventing points across gaps.
+ * Main caller: bindChart. Points must be sorted by X; nonmonotonic source paths
+ * opt out of interpolation. Log axes interpolate in their displayed space.
+ * Derived samples carry no recorded counts, error bars or uncertainty bands.
+ */
+export function chartSample(series, target, spec = {}) {
+  const index = lowerBound(series.points, target, point => point.x);
+  const before = series.points[index-1], after = series.points[index];
+  const nearest = [before,after].filter(Boolean).sort((a,b)=>Math.abs(a.x-target)-Math.abs(b.x-target))[0];
+  if (!nearest) return null;
+  const recorded = point => ({...series, point, interpolated:false});
+  if (Math.abs(nearest.x-target) <= Number.EPSILON*8*Math.max(1,Math.abs(target),Math.abs(nearest.x))) return recorded(nearest);
+  const kind = series.kind || spec.kind || 'line';
+  if (!['line','area'].includes(kind) || series.interpolate === false) return recorded(nearest);
+  if (!before || !after || after.breakBefore) return null;
+  const fraction = spec.logX ? Math.log(target/before.x)/Math.log(after.x/before.x) : (target-before.x)/(after.x-before.x);
+  const mix = (a,b) => spec.logScale ? 10 ** (Math.log10(a)+(Math.log10(b)-Math.log10(a))*fraction) : a+(b-a)*fraction;
+  const point = {x:target, y:mix(before.y,after.y)};
+  if (finite(before.raw) && finite(after.raw) && (!spec.logScale || before.raw > 0 && after.raw > 0)) point.raw = mix(before.raw,after.raw);
+  return {...series, point, interpolated:true};
+}
 
 /** Draw uncertainty at its actual data endpoints, clipped with the series.
  * Main callers: renderChart. Domain calculation above includes these endpoints;
@@ -146,11 +190,11 @@ export function renderChart(spec, id = 'chart') {
     }).join('') + errors;
     const markers = (series.markers || (series.kind || spec.kind) === 'scatter') ? decimate(points, 1000).map(p => `<circle cx="${sx(p.x, spec)}" cy="${sy(p.y, spec)}" r="${(series.markerSize || 6) / 2}" fill="${series.color}" opacity=".72"/>`).join('') : '';
     if ((series.kind || spec.kind) === 'scatter') return markers + errors;
-    const raw = spec.smoothing && spec.showRaw !== false ? `<path d="${path(points, spec, true)}" stroke="${series.color}" stroke-width="1" opacity=".17"/>` : '';
+    const raw = spec.smoothing && spec.showRaw !== false ? `<path class="chart-raw-line" d="${path(points, spec, true)}" stroke="${series.color}" stroke-width="1" opacity=".17"/>` : '';
     const fill = spec.kind === 'area' && points.length ? `<path d="${path(points, spec)} L${sx(points.at(-1).x, spec)},${H - bottom} L${sx(points[0].x, spec)},${H - bottom} Z" fill="${series.color}" opacity=".12" stroke="none"/>` : '';
-    return `${variationBand(points,series,spec)}${fill}${raw}<path d="${path(points, spec)}" stroke="${series.color}" stroke-width="1.8" ${series.dashed ? 'stroke-dasharray="5 3"' : ''}/>${markers}${errors}${points.length === 1 && !markers ? `<circle cx="${sx(points[0].x, spec)}" cy="${sy(points[0].y, spec)}" r="3" fill="${series.color}"/>` : ''}`;
+    return `${variationBand(points,series,spec)}${fill}${raw}<path class="chart-line" d="${path(points, spec)}" stroke="${series.color}" stroke-width="1.8" ${series.dashed ? 'stroke-dasharray="5 3"' : ''}/>${markers}${errors}${points.length === 1 && !markers ? `<circle cx="${sx(points[0].x, spec)}" cy="${sy(points[0].y, spec)}" r="3" fill="${series.color}"/>` : ''}`;
   }).join('');
-  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${e(spec.title || 'Metric plot')}.${spec.xLabel ? ` X axis: ${e(spec.xLabel)}.` : ''}${spec.yLabel ? ` Y axis: ${e(spec.yLabel)}.` : ''} Arrow keys inspect points. Drag to zoom, double click or press zero to reset."><defs><clipPath id="clip-${e(id)}"><rect x="${left}" y="${T}" width="${width}" height="${height}"/></clipPath></defs><g class="axis">${grid}${ticks}${axisTitles}</g><g clip-path="url(#clip-${e(id)})" fill="none" stroke-linejoin="round" stroke-linecap="round">${shapes}<rect class="zoom-selection" y="${T}" height="${height}" fill="#8abbff" opacity=".13" visibility="hidden"/><line class="crosshair" y1="${T}" y2="${H - bottom}" stroke="#839089" stroke-dasharray="3 3" visibility="hidden"/></g></svg><div class="chart-tooltip" role="status" popover="manual" tabindex="0" hidden></div>`;
+  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${e(spec.title || 'Metric plot')}.${spec.xLabel ? ` X axis: ${e(spec.xLabel)}.` : ''}${spec.yLabel ? ` Y axis: ${e(spec.yLabel)}.` : ''} Arrow keys inspect points. Drag to zoom, double click or press zero to reset."><defs><clipPath id="clip-${e(id)}"><rect x="${left}" y="${T}" width="${width}" height="${height}"/></clipPath></defs><g class="axis">${grid}${ticks}${axisTitles}</g><g clip-path="url(#clip-${e(id)})" fill="none" stroke-linejoin="round" stroke-linecap="round">${shapes}<rect class="zoom-selection" y="${T}" height="${height}" fill="#8abbff" opacity=".13" visibility="hidden"/><line class="crosshair" y1="${T}" y2="${H - bottom}" stroke="#839089" stroke-dasharray="3 3" visibility="hidden"/><g class="inspection-points" pointer-events="none"></g></g></svg><div class="chart-tooltip" role="status" popover="manual" tabindex="0" hidden></div>`;
 }
 
 /** Render hover values with an explicit count and reachable additional series.
@@ -161,10 +205,10 @@ export function renderChart(spec, id = 'chart') {
 export function renderChartTooltip(spec, target, nearest, {expanded = false} = {}) {
   const limit = 12;
   const xText = value => spec.timeAxis ? new Date(value * 1000).toLocaleString() : f(value);
-  const rows = samples => samples.map(s => `<div class="tooltip-series" style="display:flex;align-items:center;gap:7px;padding:3px 0"><span class="dot" style="background:${e(s.color)}"></span><span title="${e(s.name)}">${e(s.name)}</span><b>${e(f(s.point.y))}</b></div><small class="tooltip-sample">X ${e(xText(s.point.x))}${s.point.count ? ` · ${s.point.count} runs · σ ${e(f(s.point.stddev))}` : ''}${s.point.raw !== undefined && s.point.raw !== s.point.y ? ` · raw ${e(f(s.point.raw))}` : ''}</small>`).join('');
+  const rows = samples => samples.map(s => `<div class="tooltip-series" style="display:flex;align-items:center;gap:7px;padding:3px 0"><span class="dot" style="background:${e(s.color)}"></span><span title="${e(s.name)}">${e(s.name)}</span><b>${e(f(s.point.y))}</b></div><small class="tooltip-sample">X ${e(xText(s.point.x))}${s.interpolated ? ' · Interpolated' : ' · Recorded point'}${s.point.count ? ` · ${s.point.count} runs · σ ${e(f(s.point.stddev))}` : ''}${s.point.raw !== undefined && s.point.raw !== s.point.y ? ` · raw ${e(f(s.point.raw))}` : ''}</small>`).join('');
   const count = nearest.length > limit ? `<small data-tooltip-series-count style="display:block;margin-bottom:7px;color:var(--muted)">${expanded ? nearest.length : limit} of ${nearest.length} series shown</small>` : '';
   const extra = nearest.length > limit ? `<details class="tooltip-additional-series" ${expanded ? 'open' : ''} style="margin-top:8px;border-top:1px solid var(--border);padding-top:7px"><summary style="cursor:pointer;color:var(--accent)">${expanded ? 'Hide' : 'Show'} ${nearest.length - limit} more series</summary>${rows(nearest.slice(limit))}</details>` : '';
-  return `<div class="tooltip-title">${e(spec.xLabel || 'Step')} ${e(spec.categories ? spec.categories[Math.round(target)] ?? '' : xText(target))}</div>${count}${rows(nearest.slice(0, limit))}${extra}`;
+  return `<div class="tooltip-title">${e(spec.xLabel || 'Step')} ${e(spec.categories ? spec.categories[Math.round(target)] ?? '' : xText(target))}</div>${count}${rows(nearest.slice(0, limit))}${extra}${nearest.length ? '' : '<small>No data at this X</small>'}`;
 }
 
 /** Attach pointer hover and drag selection after inserting the SVG.
@@ -174,8 +218,9 @@ export function bindChart(element, spec, onZoom) {
   if (!spec) return;
   const svg = element.querySelector('svg'), tooltip = element.querySelector('.chart-tooltip');
   const crosshair = svg.querySelector('.crosshair'), selection = svg.querySelector('.zoom-selection');
+  const inspectionPoints = svg.querySelector('.inspection-points');
   const left = plotLeft(spec), bottom = bottomMargin(spec), width = plotWidth(spec), height = plotHeight(spec);
-  let start = null, keyboardIndex = -1, hoverFrame = 0, hideTimer = null, showAllSeries = false, tooltipAnchor = null;
+  let start = null, keyboardIndex = -1, hoverFrame = 0, hideTimer = null, showAllSeries = false, tooltipAnchor = null, inspectionCount = 0;
   // The browser top layer escapes panel overflow and modal stacking contexts.
   // Keep ownership inside this chart so replacing a panel also removes its hover.
   const hideTooltip = () => {
@@ -184,6 +229,7 @@ export function bindChart(element, spec, onZoom) {
     if (tooltip.matches(':popover-open')) tooltip.hidePopover();
     tooltip.hidden = true;
     crosshair.setAttribute('visibility', 'hidden');
+    inspectionPoints.replaceChildren();
   };
   // A short gap between the SVG and floating tooltip must not prevent reaching
   // its scroll area or Show more control. Focus departure still closes at once.
@@ -220,17 +266,14 @@ export function bindChart(element, spec, onZoom) {
     return { x: Math.max(left, Math.min(W - R, point.x)), y: Math.max(T, Math.min(H - bottom, point.y)) };
   };
   const value = x => xValue((x - left) / width, spec);
-  const orderedSeries = spec.series.map(series => ({ ...series, points: series.points.slice().sort((a,b) => a.x-b.x) }));
+  const orderedSeries = spec.series.map(series => ({ ...series, interpolate:series.points.every((point,i)=>!i || point.x>=series.points[i-1].x), points: series.points.slice().sort((a,b) => a.x-b.x) }));
+  const xs = [...new Set(orderedSeries.flatMap(series => series.points.filter(point => point.x >= spec.xMin && point.x <= spec.xMax).map(point => point.x)))].sort((a,b)=>a-b);
   const inspect = (x, clientX, clientY) => {
     const target = value(x);
-    const nearest = orderedSeries.map(series => {
-      let lo = 0, hi = series.points.length;
-      while (lo < hi) { const mid = (lo + hi) >> 1; if (series.points[mid].x < target) lo = mid + 1; else hi = mid; }
-      const choices = [series.points[lo], series.points[lo - 1]].filter(Boolean);
-      const point = choices.sort((a, b) => Math.abs(a.x - target) - Math.abs(b.x - target))[0];
-      return point ? { ...series, point } : null;
-    }).filter(Boolean);
+    const nearest = orderedSeries.map(series => chartSample(series,target,spec)).filter(Boolean);
+    inspectionCount = nearest.length;
     crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x); crosshair.setAttribute('visibility', 'visible');
+    inspectionPoints.innerHTML = nearest.filter(sample=>!sample.interpolated && (sample.kind || spec.kind) !== 'bar' && sample.kind !== 'none').map(sample=>`<circle class="inspection-point" cx="${sx(sample.point.x,spec)}" cy="${sy(sample.point.y,spec)}" r="3.5" fill="${e(sample.color)}" stroke="var(--surface, #1c2127)" stroke-width="1.5"/>`).join('');
     tooltip.innerHTML = renderChartTooltip(spec, target, nearest, {expanded:showAllSeries});
     tooltipAnchor = {x:clientX, y:clientY};
     placeTooltip(clientX, clientY);
@@ -238,7 +281,7 @@ export function bindChart(element, spec, onZoom) {
   tooltip.addEventListener('toggle', event => {
     if (!event.target.matches('.tooltip-additional-series') || tooltip.hidden) return;
     showAllSeries = event.target.open;
-    const count = tooltip.querySelector('[data-tooltip-series-count]'), total = orderedSeries.filter(series => series.points.length).length;
+    const count = tooltip.querySelector('[data-tooltip-series-count]'), total = inspectionCount;
     count.textContent = `${showAllSeries ? total : 12} of ${total} series shown`;
     event.target.querySelector('summary').textContent = `${showAllSeries ? 'Hide' : 'Show'} ${total - 12} more series`;
     if (tooltipAnchor) placeTooltip(tooltipAnchor.x, tooltipAnchor.y);
@@ -253,10 +296,10 @@ export function bindChart(element, spec, onZoom) {
       selection.setAttribute('y', horizontalOnly ? T : Math.min(start.y,y)); selection.setAttribute('height', horizontalOnly ? height : Math.abs(start.y-y)); selection.setAttribute('visibility', 'visible');
       return;
     }
-    inspect(x, event.clientX, event.clientY);
+    const transform = svg.getScreenCTM(), scale = Math.hypot(transform.a,transform.b);
+    inspect(snapChartX(xs,x,spec,6/scale), event.clientX, event.clientY);
   });
   svg.addEventListener('keydown', event => {
-    const xs = [...new Set(spec.series.flatMap(series => series.points.filter(point => point.x >= spec.xMin && point.x <= spec.xMax).map(point => point.x)))].sort((a, b) => a - b);
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) && xs.length) {
       event.preventDefault();
       keyboardIndex = event.key === 'Home' ? 0 : event.key === 'End' ? xs.length - 1 : Math.max(0, Math.min(xs.length - 1, keyboardIndex + (event.key === 'ArrowRight' ? 1 : -1)));
