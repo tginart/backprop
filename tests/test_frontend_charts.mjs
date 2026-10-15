@@ -6,7 +6,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chartSpec, renderChart, renderChartTooltip} from '../web/charts.mjs';
+import {chartSpec, renderChart, renderChartTooltip, chartSample, snapChartX} from '../web/charts.mjs';
+import {smoothSeries} from '../web/smoothing.mjs';
 
 const series = [{name:'Loss', color:'#abcdef', points:[{x:0,y:0},{x:100,y:100}]}];
 const samples = count => Array.from({length:count}, (_,index) => ({name:`Experiment ${index}`, color:'#abcdef', point:{x:25,y:index}}));
@@ -43,6 +44,51 @@ test('compact inspection keeps its existing heading and escapes run names', () =
   assert.match(html, /class="tooltip-title">Epoch 25/);
   assert.match(html, /&lt;img src=x&gt;/); assert.match(html, /raw 2/);
   assert(!html.includes('<details')); assert(!html.includes('series shown'));
+});
+
+test('smoothing shows raw spikes within the domain without changing recorded values', () => {
+  const points = Array.from({length:1600},(_,x)=>({x,y:x===831?100:0})), before = JSON.stringify(points);
+  const smoothed = [{name:'Loss',color:'#abcdef',points:smoothSeries(points,{smoothing:.98})}];
+  const spec = chartSpec(smoothed,{smoothing:.98});
+  assert(spec.yMax > 100);
+  const html = renderChart(spec), raw = html.match(/class="chart-raw-line" d="([^"]+)"/)[1];
+  const expectedX = (76+831/1599*506).toFixed(2), expectedY = (18+(1-(100-spec.yMin)/(spec.yMax-spec.yMin))*200).toFixed(2);
+  assert(raw.includes(`${expectedX},${expectedY}`),'raw decimation retains the original spike');
+  assert.equal(JSON.stringify(points),before);
+  assert(!renderChart(chartSpec(smoothed,{smoothing:.98,showRaw:false})).includes('chart-raw-line'));
+  assert(chartSpec(smoothed,{smoothing:.98,showRaw:false}).yMax < 100);
+  assert(!renderChart(chartSpec(series,{smoothing:0})).includes('chart-raw-line'));
+  assert.deepEqual(chartSpec(smoothed,{smoothing:.98,zoom:[800,900]}).series, spec.series,'zoom never resmooths the data');
+});
+
+test('inspection interpolates between samples but never across gaps or outside a series', () => {
+  const line={name:'Loss',color:'#abcdef',points:[{x:0,y:0,raw:2,count:3},{x:10,y:20,raw:8,count:3},{x:20,y:5,breakBefore:true}]};
+  const sample=chartSample(line,4);
+  assert.equal(sample.interpolated,true);assert.equal(sample.point.y,8);assert.equal(sample.point.raw,4.4);
+  assert.equal(sample.point.count,undefined);
+  assert.match(renderChartTooltip({},4,[sample]),/Interpolated/);
+  assert.equal(chartSample(line,15),null);assert.equal(chartSample(line,-1),null);assert.equal(chartSample(line,21),null);
+  const recorded=chartSample(line,10);
+  assert.equal(recorded.point,line.points[1]);assert.equal(recorded.interpolated,false);
+  assert.match(renderChartTooltip({},10,[recorded]),/Recorded point/);
+  assert.equal(chartSample({...line,kind:'scatter'},4).interpolated,false);
+  assert.equal(chartSample({...line,interpolate:false},4).interpolated,false);
+  assert.equal(chartSample({points:[]},4),null);
+});
+
+test('log-axis inspection follows the displayed segment', () => {
+  const sample=chartSample({points:[{x:1,y:1},{x:100,y:100}]},10,{logX:true,logScale:true});
+  assert(Math.abs(sample.point.y-10)<1e-10);
+});
+
+test('magnetic inspection uses a small radius capped by neighboring spacing', () => {
+  const spec=chartSpec(series,{xMin:0,xMax:100});
+  assert.equal(snapChartX([0,50,100],333,spec),329);
+  assert.equal(snapChartX([0,50,100],336,spec),336);
+  assert.equal(snapChartX([0,50,100],333,spec,3),333);
+  assert.equal(snapChartX([49,50,51],330.1,spec),330.1);
+  assert.equal(snapChartX([49,50,51],329.5,spec),329);
+  assert.equal(snapChartX([],333,spec),333);
 });
 
 test('browser inspection, labels, expansion and zoom follow drawn coordinates', {skip:!process.env.CHARTS_BROWSER}, async context => {
@@ -86,6 +132,17 @@ test('browser inspection, labels, expansion and zoom follow drawn coordinates', 
       assert.equal(await tooltip.locator('.tooltip-title').textContent(),`${labels.xLabel || 'Step'} 25`);
       const crosshair=await svg.locator('.crosshair').boundingBox();
       assert(Math.abs(crosshair.x+crosshair.width/2-hover.x)<.1);
+      assert.equal(await svg.locator('.inspection-point').count(),0);
+      assert.match(await tooltip.locator('.tooltip-sample').first().textContent(),/Interpolated/);
+      const recorded=point(50,75);
+      await page.mouse.move(recorded.x+4,recorded.y);
+      assert.equal(await tooltip.locator('.tooltip-title').textContent(),`${labels.xLabel || 'Step'} 50`);
+      assert.equal(await svg.locator('.inspection-point').count(),20);
+      assert.match(await tooltip.locator('.tooltip-sample').first().textContent(),/Recorded point/);
+      const snapped=await svg.locator('.crosshair').boundingBox();
+      assert(Math.abs(snapped.x+snapped.width/2-recorded.x)<.1,'snap radius stays in screen pixels at every aspect ratio');
+      await page.mouse.move(recorded.x+10,recorded.y);
+      assert.equal(await svg.locator('.inspection-point').count(),0,'leaving the snap zone restores free inspection');
       const start=point(20,30),end=point(80,120);
       await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y);await page.mouse.up();
       const zoom=await page.evaluate(()=>window.zooms.at(-1));
@@ -96,6 +153,7 @@ test('browser inspection, labels, expansion and zoom follow drawn coordinates', 
       assert(Math.abs(tipBox.x-anchor.x-12)<.1);assert(Math.abs(tipBox.y-anchor.y-12)<.1);
       await page.keyboard.press('End');assert.equal(await tooltip.locator('.tooltip-title').textContent(),`${labels.xLabel || 'Step'} 100`);
       await page.keyboard.press('Escape');assert(await tooltip.isHidden());
+      assert.equal(await svg.locator('.inspection-point').count(),0);
     }
   }
 

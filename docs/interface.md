@@ -15,8 +15,12 @@ table. These are views of one project, not separate stores.
 - Charts appear automatically from logged values, grouped by key prefix.
   Sections collapse and page six panels at a time. Scalar charts use the logged
   axis definition and the first ten matching visible runs by default.
-- Hover or use keyboard inspection to see recorded values. Legends toggle
-  individual series. Charts support zoom, reset, fullscreen and exports.
+- Adjust the Smoothing slider on a scalar line plot to reveal its trend, with
+  the raw data faintly behind it. Each plot remembers its strength in this browser.
+- Hover to read values along a line. The crosshair gently snaps to nearby recorded
+  points, which show a dot; values between them are labeled Interpolated. Arrow
+  keys inspect recorded points. Legends toggle individual series. Charts support
+  zoom, reset, fullscreen and exports.
 - Open a run name for Charts, Overview, Logs, Files and Artifacts. Returning to
   the project preserves the previous exploration state.
 
