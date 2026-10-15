@@ -34,7 +34,7 @@ ASSETS.update({"vega-view.mjs", "vega-6.2.0.min.js", "vega-lite-6.4.1.min.js",
                "vega-interpreter-2.2.1.min.js", "vega-LICENSE.txt", "vega-lite-LICENSE.txt", "vega-interpreter-LICENSE.txt", "vega-provenance.json"})
 ASSETS.update({"plotly-resources.mjs", "plotly-strict-3.6.0.min.js", "plotly-map-sat.json",
                "plotly-map-hybrid.json", "plotly-map-LICENSE.txt", "plotly-topology-provenance.json"})
-ASSETS.add("history-completeness.mjs")
+ASSETS.update({"history-completeness.mjs", "view-state.mjs"})
 ASSETS.update({"experience.mjs", "chart-series.mjs", "workspace-store.mjs", "workspace-session.mjs",
                "panel-catalog.mjs", "panel-bank.mjs", "project-pages.mjs", "run-comparer.mjs", "chart-defaults.mjs"})
 ASSETS.update({'artifact-collections.mjs', 'tensorboard-groups.mjs', 'tensorboard-summary.mjs'})

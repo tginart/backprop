@@ -104,8 +104,8 @@
     },
     {
       "path": "deploy/deploy.py",
-      "bytes": 10548,
-      "sha256": "a6779b1795daa8ba0c8a74ce29dc24053da9a3eb5696de1b4fda2c720d4be7bf"
+      "bytes": 10565,
+      "sha256": "750e3ff38c55de43d0a2665ce710c990cc273519c7b17de8af193f753d8b5d88"
     },
     {
       "path": "deploy/foundry_api.py",
@@ -1418,6 +1418,11 @@
       "sha256": "45a35df513bb807e6b69dc6d42d5145718ee2ef02b03ea5fd474254969a8fc8a"
     },
     {
+      "path": "tests/browser_refresh_state_qa.mjs",
+      "bytes": 18526,
+      "sha256": "2b05e27dfcc02d0692f42a5f507ced688d9d199f0645e13a23c5abc1910ebad5"
+    },
+    {
       "path": "tests/browser_request_recovery.mjs",
       "bytes": 3562,
       "sha256": "1054782e937d3640ed6774653eead6d1b1e5c993d8e2787d851e219292ba689c"
@@ -2269,8 +2274,8 @@
     },
     {
       "path": "tests/test_deploy.py",
-      "bytes": 22309,
-      "sha256": "a342d72394b6018a60f2e9a29b3dead82830e3eb33dbbc186203bb9b5e2f402b"
+      "bytes": 22332,
+      "sha256": "9b1939953527d00740506a11008456d2d281a6e3dd9102f10df7511bd481c59a"
     },
     {
       "path": "tests/test_deployment_config.py",
@@ -3354,8 +3359,8 @@
     },
     {
       "path": "tools_verify_release.py",
-      "bytes": 9738,
-      "sha256": "ccbfaab9feb1f4c2975b84cf5fba87e1df907c91cce6b7330a9b2489c939f707"
+      "bytes": 9769,
+      "sha256": "fbb3ee00dfc20f3c42f3c21e8994d8f0659aa0b59cae6ea60e028b7350610cdb"
     },
     {
       "path": "web/africa_110m.json",
@@ -3384,8 +3389,8 @@
     },
     {
       "path": "web/app.mjs",
-      "bytes": 155745,
-      "sha256": "27360d7332a319d5b8ed3995785b1fe6351cdbec5d3b26e1c2d6c9dbc0ff0dc0"
+      "bytes": 156357,
+      "sha256": "d7de6604f868e15a5b1f4b65687ae1b6a3c468b07ef469ef9e0e1b3e4c5248ac"
     },
     {
       "path": "web/artifact-collections.mjs",
@@ -3484,8 +3489,8 @@
     },
     {
       "path": "web/media-view.mjs",
-      "bytes": 11010,
-      "sha256": "5136058bbf6ef15eb2b03e805c42fb6be1b9472e06d1124a35c5a375c8a953f6"
+      "bytes": 11387,
+      "sha256": "b158e557a1c85c438833f17fd85893abb0817b478358f2cc721bd6d5ea33d562"
     },
     {
       "path": "web/model.mjs",
@@ -3524,8 +3529,8 @@
     },
     {
       "path": "web/panel-bank.mjs",
-      "bytes": 9418,
-      "sha256": "7b98d34347e4aedaf656049dd6f2f11f7f2d3bef74008b871357cd9a430776d5"
+      "bytes": 9450,
+      "sha256": "d99df5f665ac2b6f8f8b5b6539d4e89e076b9b9919a71a47b4a0a43dcea41f6a"
     },
     {
       "path": "web/panel-catalog.mjs",
@@ -3726,6 +3731,11 @@
       "path": "web/vega-view.mjs",
       "bytes": 3824,
       "sha256": "d4f76c08bd759378335496273c7a7414777b0ad7b387bd08d5cfb1ddfd159252"
+    },
+    {
+      "path": "web/view-state.mjs",
+      "bytes": 5263,
+      "sha256": "7db3079c680b37e1f47f5f12c5ee2be741b6be1f81a7d6078c5288ed285d5c4b"
     },
     {
       "path": "web/workspace-layout.mjs",
