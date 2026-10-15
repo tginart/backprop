@@ -1,0 +1,92 @@
+/** Preserve browser-owned exploration state across a render of the same view.
+ * Logical keys distinguish panels, runs and values; local DOM paths cover new
+ * scroll containers without another selector allowlist. Nothing is persisted.
+ */
+const identityAttributes = ['id', 'data-view-key', 'data-metric', 'data-section-id',
+  'data-media-key', 'data-plotly-key', 'data-vega-key', 'data-state', 'data-rich-step', 'data-table-search'];
+
+function identity(node) {
+  const attribute = identityAttributes.find(name => node.hasAttribute(name));
+  return attribute ? [attribute, node.getAttribute(attribute)] : [node.tagName, node.classList[0] || ''];
+}
+const sameIdentity = (node, key) => JSON.stringify(identity(node)) === JSON.stringify(key);
+function pathTo(root, node) {
+  const path = [];
+  for (; node && node !== root; node = node.parentElement) {
+    const key = identity(node);
+    const index = [...node.parentElement.children].filter(child => sameIdentity(child, key)).indexOf(node);
+    path.unshift({key, index});
+  }
+  return path;
+}
+function find(root, path) {
+  let node = root;
+  for (const {key, index} of path) {
+    node = [...node.children].filter(child => sameIdentity(child, key))[index];
+    if (!node) return null;
+  }
+  return node;
+}
+
+export function captureViewState(root) {
+  const nodes = [root, ...root.querySelectorAll('*')], active = document.activeElement;
+  return {
+    scroll: nodes.filter(node => node.scrollTop || node.scrollLeft).map(node => ({path:pathTo(root,node), top:node.scrollTop, left:node.scrollLeft})),
+    page: {node:document.scrollingElement, top:document.scrollingElement.scrollTop, left:document.scrollingElement.scrollLeft},
+    details: nodes.filter(node => node.tagName === 'DETAILS').map(node => ({path:pathTo(root,node), open:node.open})),
+    focus: root.contains(active) ? {path:pathTo(root,active), start:active.selectionStart, end:active.selectionEnd, direction:active.selectionDirection} : null,
+  };
+}
+
+export function restoreViewState(root, snapshot) {
+  for (const item of snapshot.details) {
+    const node = find(root, item.path);
+    if (node) node.open = item.open;
+  }
+  const focus = snapshot.focus, active = focus && find(root, focus.path);
+  if (active) {
+    active.focus({preventScroll:true});
+    if (typeof focus.start === 'number' && active.setSelectionRange) active.setSelectionRange(focus.start, focus.end, focus.direction);
+  }
+  const positions = snapshot.scroll.map(item => ({...item, node:find(root,item.path)}));
+  positions.push(snapshot.page);
+  // Loading a changed rich value can temporarily shrink its scroll container.
+  // Retry after hydration only if it is still mounted and the user has not
+  // moved it since our last restoration. Never jump an active reader back.
+  const restoreScroll = () => {
+    for (const item of positions) {
+      const {node} = item;
+      if (!node?.isConnected || item.cancelled) continue;
+      if (item.restored && (node.scrollTop !== item.restored.top || node.scrollLeft !== item.restored.left)) { item.cancelled = true; continue; }
+      node.scrollTop = item.top; node.scrollLeft = item.left;
+      item.restored = {top:node.scrollTop, left:node.scrollLeft};
+    }
+  };
+  restoreScroll();
+  return restoreScroll;
+}
+
+/** Polling may read data while someone inspects a menu/chart, edits through a
+ * native picker, composes text, or drags. Apply its render after they finish.
+ * Recheck at completion too: an interaction may start during the request.
+ */
+export function createRefreshRenderer(root, render) {
+  let pending = false, pointer = false, dragging = false, composing = false, timer;
+  const blocked = () => {
+    const active = document.activeElement, selection = document.getSelection();
+    return pointer || dragging || composing || document.querySelector('dialog[open],.action-menu:popover-open,.chart-tooltip:popover-open') ||
+      root.contains(active) && active.matches('select,input[type="color"],input[type="range"]') ||
+      selection && !selection.isCollapsed && root.contains(selection.anchorNode);
+  };
+  const flush = () => { if (pending && !blocked()) { pending = false; render(); } };
+  const schedule = () => { if (pending) { clearTimeout(timer); timer = setTimeout(flush, 0); } };
+  document.addEventListener('pointerdown', event => { if (root.contains(event.target)) pointer = true; }, true);
+  for (const type of ['pointerup','pointercancel']) document.addEventListener(type, () => { pointer = false; schedule(); }, true);
+  document.addEventListener('dragstart', event => { if (root.contains(event.target)) dragging = true; }, true);
+  document.addEventListener('dragend', () => { dragging = false; pointer = false; schedule(); }, true);
+  document.addEventListener('compositionstart', event => { if (root.contains(event.target)) composing = true; }, true);
+  document.addEventListener('compositionend', () => { composing = false; schedule(); }, true);
+  for (const type of ['close','toggle','focusout','change','click','keydown','selectionchange']) document.addEventListener(type, schedule, true);
+  window.addEventListener('blur', () => { pointer = false; dragging = false; composing = false; schedule(); });
+  return {request:() => { pending = true; flush(); }, cancel:() => { pending = false; }};
+}

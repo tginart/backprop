@@ -17,6 +17,7 @@ const vegaRegistry = new Map();
 import { initialize, loadWorkspace, getMediaUrl, loadRunControl, publishRunStop, getWorkspaceIdentity, publishWorkspaceEvent, isWorkspaceEvent } from './api.js';
 import { getAuthState, login, logout } from './auth.js';
 import {createWorkspaceSession,workspaceSaveLabel} from './workspace-session.mjs';
+import {captureViewState,restoreViewState,createRefreshRenderer} from './view-state.mjs';
 import {renderProjectOverview,renderProjectArtifacts} from './project-pages.mjs';
 import {renderRunComparer} from './run-comparer.mjs';
 import {chartDefaultsFields,readChartDefaults} from './chart-defaults.mjs';
@@ -103,6 +104,8 @@ state.tableFilters=tableFilters;
 let mediaSequence = 0;
 let appliedRunLink = false;
 let refreshTimer, toastTimer, request = null, applicationConfig = null;
+let renderedViewScope = '', renderRevision = 0;
+const refreshRenderer = createRefreshRenderer(app, () => render());
 let workspaceSession=null,workspaceSessionError='',workspaceRead=Promise.resolve();
 /** Serialize archive/live reads so autosave and the experiment refresh loop
  * cannot race their shared stream offsets. Main callers: refresh and view Save.
@@ -275,12 +278,16 @@ function restoreFocus(root, focus) {
  * Main callers: refresh and delegated interactions. This keeps polling from
  * stealing the caret while someone searches a large collection of runs.
  */
-function render() {
+function render({restore = null} = {}) {
+  refreshRenderer.cancel();
+  const revision = ++renderRevision;
+  const scope = JSON.stringify([state.project,state.view,state.runKey,state.runTab]);
+  const viewState = restore || (renderedViewScope === scope ? captureViewState(app) : null);
+  const focus = viewState ? null : rememberFocus(app);
+  renderedViewScope = scope;
   renderedCatalog=null;
   hideControlTooltip();
   document.querySelector('.action-menu')?.remove();
-  const focus = rememberFocus(app);
-  const scrollPositions=[...app.querySelectorAll('.main,.run-list,.charts-area,.runs-table')].map(node=>({selector:'.'+[...node.classList][0],top:node.scrollTop,left:node.scrollLeft}));
   chartRegistry.clear();
   mediaRegistry.clear();
   plotlyRegistry.clear();
@@ -304,9 +311,11 @@ function render() {
     onMove:(metric,section,before)=>{movePanel(layout(),allPanels(projectRuns()),metric,section,before);state.pinnedPanels.delete(panelKey(state.project,metric));persist();render();},
     onSectionMove:(section,before)=>{const ids=arrangePanels(allPanels(projectRuns()),layout(),new Set(),sourceMetric).map(item=>item.id).filter(id=>id!==section);ids.splice(Math.max(0,ids.indexOf(before)),0,section);layout().sectionOrder=ids;persist();render();}});
   app.querySelector('.workspace-settings')?.addEventListener('toggle',event=>{layout().settingsOpen=event.target.open;persist();});
-  hydrateMedia(app);
-  restoreFocus(app, focus);
-  for(const position of scrollPositions){const node=app.querySelector(position.selector);if(node){node.scrollTop=position.top;node.scrollLeft=position.left;}}
+  const hydration = hydrateMedia(app);
+  if (viewState) {
+    const restoreScroll = restoreViewState(app, viewState);
+    hydration.then(() => { if (revision === renderRevision) restoreScroll(); });
+  } else restoreFocus(app, focus);
 }
 
 /** Initial data read: show an honest waiting state without empty experiment UI.
@@ -376,7 +385,7 @@ function renderRunPanel() {
   const columns=runColumns().filter(([key])=>(layout().pinnedColumns || []).includes(key));
   const rows=groupRuns(runs,analysis().groupBy).map(group=>`
     ${analysis().groupBy?`<div class="sidebar-group"><span>${e(group.name)}</span><span>${group.runs.length} on page</span></div>`:''}
-    ${group.runs.map(run=>`<div class="run-item ${state.hiddenRuns.has(run.key)?'muted-run':''}">
+    ${group.runs.map(run=>`<div data-view-key="${e(run.key)}" class="run-item ${state.hiddenRuns.has(run.key)?'muted-run':''}">
       ${visibilityControl(run)}${colorControl(run)}
       <div class="run-meta"><button class="run-name" data-run="${e(run.key)}" title="${e(run.name)}">${e(run.name)}</button>
       </div>
@@ -585,7 +594,7 @@ function renderRuns() {
     const group = labels.get(run.key);
     const header = choices.groupBy && group.key !== currentGroup ? `<tr class="run-group-row"><th colspan="${4+columns.length}">${e(group.name)} <span class="dim">${group.runs.length} runs</span></th></tr>` : '';
     currentGroup = group.key;
-    return `${header}<tr><td><input type="checkbox" data-run-select="${e(run.key)}" aria-label="Select ${e(run.name)}" ${state.selected.has(run.key) ? 'checked' : ''}></td><td>${visibilityControl(run)}</td><td>${colorControl(run)}</td><td><button class="table-run" data-run="${e(run.key)}">${e(run.name)}</button><button class="quick-inspect" data-inspect-run="${e(run.key)}" aria-label="Quick inspect ${e(run.name)}" title="Quick inspect">${icon("info")}<span class="sr-only">${e(run.name)}</span></button><span class="dim mono run-id">${e(run.id)}</span></td>${columns.map(([field]) => `<td class="mono">${runColumnValue(run,field)}</td>`).join('')}</tr>`;
+    return `${header}<tr data-view-key="${e(run.key)}"><td><input type="checkbox" data-run-select="${e(run.key)}" aria-label="Select ${e(run.name)}" ${state.selected.has(run.key) ? 'checked' : ''}></td><td>${visibilityControl(run)}</td><td>${colorControl(run)}</td><td><button class="table-run" data-run="${e(run.key)}">${e(run.name)}</button><button class="quick-inspect" data-inspect-run="${e(run.key)}" aria-label="Quick inspect ${e(run.name)}" title="Quick inspect">${icon("info")}<span class="sr-only">${e(run.name)}</span></button><span class="dim mono run-id">${e(run.id)}</span></td>${columns.map(([field]) => `<td class="mono">${runColumnValue(run,field)}</td>`).join('')}</tr>`;
   }).join('');
   return `<section class="runs-browser"><div class="runs-browser-title"><h2>Runs <span class="count">${projectRuns().length}</span></h2><button class="icon-btn" data-action="collapse-run-table" aria-label="Collapse runs to sidebar">${icon("left")}</button></div><div class="toolbar">${runSearch()}<label>State <select data-state="status"><option value="">All states</option>${['running','finished','failed','crashed'].map(status => `<option ${state.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>${analysisButtons()}<label>Group <select data-state="group" aria-label="Filter run group"><option value="">All groups</option>${[...new Set(projectRuns().map(run=>run.group).filter(Boolean))].sort().map(group=>`<option value="${e(group)}" ${state.group===group?'selected':''}>${e(group)}</option>`).join('')}</select></label><span class="result-count">${runs.length} runs · ${selectedRuns().length} selected</span><span class="grow"></span><button class="btn small" data-action="export-runs">${icon('download')} Export CSV</button>${selectedRuns().length?`<div class="bulk-run-actions" role="group" aria-label="Selected run actions"><span>${selectedRuns().length} selected</span><button class="btn small" data-action="show-selected-runs">Show in charts</button><button class="btn small" data-action="hide-selected-runs">Hide from charts</button><button class="btn small" data-view="compare">Compare selected</button><button class="icon-btn" data-action="clear-row-selection" aria-label="Clear run selection">${icon("close")}</button></div>`:""}</div><div class="table-wrap runs-table"><table><thead><tr><th><input type="checkbox" data-action="select-all" aria-label="Select all matching runs" ${runs.length && runs.every(run => state.selected.has(run.key)) ? 'checked' : ''}></th><th>${visibilityMenu()}</th><th aria-label="Run color"></th>${head('run:name','Run')}${columns.map(([field,label]) => head(field,label)).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="${4+columns.length}" class="chart-empty">No runs match these filters.</td></tr>`}</tbody></table></div>${runPagination(runs.length)}<p class="table-note">Eyes control chart visibility. Checkboxes select runs for actions.</p></section>`;
 }
@@ -687,12 +696,12 @@ function renderRichValue(value, id, color = '#8abbff', context = null) {
   if (!value || typeof value !== 'object') return `<pre class="json-view">${e(value)}</pre>`;
   if (value._backprop_external_reference) return `<div class="notice"><span>External artifact reference<code class="external-reference-uri">${e(value.uri || value.ref || '')}</code>Download through the Python SDK with the provider's credentials. These bytes are not stored in Foundry.</span></div>`;
   if (value._load_error) return `<div class="notice error">${e(value._load_error)}</div>`;
-  if (value._type === 'python.sequence') return `<details class="array-cell"><summary>${e(value.kind || 'Sequence')} · ${Array.isArray(value.data) ? value.data.length : 0} items</summary><pre class="json-view">${e(JSON.stringify(value.data, null, 2))}</pre></details>`;
+  if (value._type === 'python.sequence') return `<details class="array-cell" data-view-key="${e(id)}"><summary>${e(value.kind || 'Sequence')} · ${Array.isArray(value.data) ? value.data.length : 0} items</summary><pre class="json-view">${e(JSON.stringify(value.data, null, 2))}</pre></details>`;
   if (value._type === 'timestamp' && typeof value.value === 'string') return `<time class="table-timestamp mono" datetime="${e(value.value)}">${e(value.value.replace('T',' ').replace(/Z$/,' UTC'))}</time>`;
   if (value._type === 'ndarray') {
     const dtype = typeof value.dtype === 'string' ? value.dtype : 'array';
     const shape = Array.isArray(value.shape) && value.shape.every(size => Number.isSafeInteger(size) && size >= 0) ? value.shape.length ? value.shape.join(' × ') : 'scalar' : 'unknown shape';
-    return `<details class="array-cell"><summary>${e(dtype)} · ${e(shape)}</summary><pre class="json-view">${e(JSON.stringify(value.data, null, 2))}</pre></details>`;
+    return `<details class="array-cell" data-view-key="${e(id)}"><summary>${e(dtype)} · ${e(shape)}</summary><pre class="json-view">${e(JSON.stringify(value.data, null, 2))}</pre></details>`;
   }
   if (value._type === 'table') {
     if (value.external && !value.data) return `<div class="notice">${icon('info')}<span>This table has not finished loading. Refresh to retry.</span></div>`;
@@ -708,7 +717,7 @@ function renderRichValue(value, id, color = '#8abbff', context = null) {
   if (value._type === 'number') return valueCell(value);
   if (value._type === 'vega') {
     vegaRegistry.set(id, value);
-    return `<div class="plotly-container" data-vega-id="${e(id)}"><div class="chart-empty content-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>Loading custom chart…</span></div></div>`;
+    return `<div class="plotly-container" data-vega-id="${e(id)}" data-vega-key="${e(JSON.stringify([id,value]))}"><div class="chart-empty content-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>Loading custom chart…</span></div></div>`;
   }
   if (value._type === 'plot') return renderCustomPlot(value, id, color);
   if (value._type === 'plotly') return renderPlotly(value, id, color);
@@ -728,7 +737,7 @@ function renderTable(value, id) {
   const columns = (value.columns || []).map((name, index) => ({ name, index })).filter(({ index }) => !settings.hiddenColumns?.includes(index));
   state.tablePages.set(id, page);
   const legacy = value.legacy_offline ? `<div class="notice table-legacy"><span>Legacy offline view · ${value.data?.length || 0} visible rows · ${e(value.nrows ?? value.data?.length ?? 0)} table rows logged.${value.log_mode === 'INCREMENTAL' ? ' This view contains the latest increment.' : ''}</span>${value.artifact_snapshot ? `<button class="btn small" data-artifact-snapshot="${e(id)}">Full artifact snapshot</button>` : ''}</div>` : '';
-  return `${legacy}<div class="toolbar table-toolbar"><div class="search">${icon('search')}<input type="search" data-table-search="${e(id)}" placeholder="Search table rows" aria-label="Search table rows" value="${e(filter)}"></div><select data-table-option="${e(id)}" data-option="column" aria-label="Search in column"><option value="">All columns</option>${(value.columns || []).map((name, index) => `<option value="${index}" ${String(settings.column) === String(index) ? 'selected' : ''}>${e(name)}</option>`).join('')}</select><span class="result-count">${rows.length} / ${value.data?.length || 0} rows</span><span class="grow"></span><button class="btn small" data-table-columns="${e(id)}">Columns</button><button class="icon-btn" data-export-table="${e(id)}" title="Export filtered table" aria-label="Export filtered table">${icon('download')}</button></div><div class="table-wrap logged-table"><table><thead><tr><th>Row</th>${columns.map(({ name, index }) => `<th aria-sort="${settings.sort === index ? settings.direction < 0 ? 'descending' : 'ascending' : 'none'}"><button data-table-sort="${e(id)}" data-column="${index}">${e(name)} <span class="dim">${settings.sort === index ? settings.direction < 0 ? '↓' : '↑' : '↕'}</span></button>${renderColumnType(value.column_types?.[index], id, index, name)}</th>`).join('')}</tr></thead><tbody>${rows.slice(page * limit, (page + 1) * limit).map(({ cells, index }) => `<tr><td class="dim mono"><button class="row-inspect" data-inspect-table="${e(id)}" data-row="${index}" aria-label="Inspect row ${index}">${index} ${icon('expand')}</button></td>${columns.map(({ index: column }) => `<td>${renderTableCell(value, id, index, column)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${columns.length + 1}" class="dim">${value.data?.length ? 'No matching rows. Clear the search or choose another column.' : 'This saved table has no rows.'}</td></tr>`}</tbody></table></div><div class="table-pagination"><span>${page * limit + (rows.length ? 1 : 0)}-${Math.min((page + 1) * limit, rows.length)} of ${rows.length}${value.log_mode ? ` · ${e(value.log_mode)}` : ''}</span><label>Rows <select data-table-option="${e(id)}" data-option="limit" aria-label="Rows per page">${[25,50,100].map(count => `<option ${limit === count ? 'selected' : ''}>${count}</option>`).join('')}</select></label><span><button class="btn small" data-table-page="${e(id)}" data-delta="-1" ${page === 0 ? 'disabled' : ''}>Previous</button> <button class="btn small" data-table-page="${e(id)}" data-delta="1" ${(page + 1) * limit >= rows.length ? 'disabled' : ''}>Next</button></span></div><p class="table-note">Click a row number to inspect full text and media. Click a column heading to sort.</p>`;
+  return `${legacy}<div class="toolbar table-toolbar"><div class="search">${icon('search')}<input type="search" data-table-search="${e(id)}" placeholder="Search table rows" aria-label="Search table rows" value="${e(filter)}"></div><select data-table-option="${e(id)}" data-option="column" aria-label="Search in column"><option value="">All columns</option>${(value.columns || []).map((name, index) => `<option value="${index}" ${String(settings.column) === String(index) ? 'selected' : ''}>${e(name)}</option>`).join('')}</select><span class="result-count">${rows.length} / ${value.data?.length || 0} rows</span><span class="grow"></span><button class="btn small" data-table-columns="${e(id)}">Columns</button><button class="icon-btn" data-export-table="${e(id)}" title="Export filtered table" aria-label="Export filtered table">${icon('download')}</button></div><div class="table-wrap logged-table" data-view-key="${e(id)}"><table><thead><tr><th>Row</th>${columns.map(({ name, index }) => `<th aria-sort="${settings.sort === index ? settings.direction < 0 ? 'descending' : 'ascending' : 'none'}"><button data-table-sort="${e(id)}" data-column="${index}">${e(name)} <span class="dim">${settings.sort === index ? settings.direction < 0 ? '↓' : '↑' : '↕'}</span></button>${renderColumnType(value.column_types?.[index], id, index, name)}</th>`).join('')}</tr></thead><tbody>${rows.slice(page * limit, (page + 1) * limit).map(({ cells, index }) => `<tr data-view-key="${index}"><td class="dim mono"><button class="row-inspect" data-inspect-table="${e(id)}" data-row="${index}" aria-label="Inspect row ${index}">${index} ${icon('expand')}</button></td>${columns.map(({ index: column }) => `<td>${renderTableCell(value, id, index, column)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${columns.length + 1}" class="dim">${value.data?.length ? 'No matching rows. Clear the search or choose another column.' : 'This saved table has no rows.'}</td></tr>`}</tbody></table></div><div class="table-pagination"><span>${page * limit + (rows.length ? 1 : 0)}-${Math.min((page + 1) * limit, rows.length)} of ${rows.length}${value.log_mode ? ` · ${e(value.log_mode)}` : ''}</span><label>Rows <select data-table-option="${e(id)}" data-option="limit" aria-label="Rows per page">${[25,50,100].map(count => `<option ${limit === count ? 'selected' : ''}>${count}</option>`).join('')}</select></label><span><button class="btn small" data-table-page="${e(id)}" data-delta="-1" ${page === 0 ? 'disabled' : ''}>Previous</button> <button class="btn small" data-table-page="${e(id)}" data-delta="1" ${(page + 1) * limit >= rows.length ? 'disabled' : ''}>Next</button></span></div><p class="table-note">Click a row number to inspect full text and media. Click a column heading to sort.</p>`;
 }
 
 /** Show a compact type label and expose structured schemas as inert JSON.
@@ -758,7 +767,7 @@ function renderTableCell(table, id, row, column, expanded = false) {
   if (relation) return `<div class="linked-cell-wrap"><button class="linked-cell" data-linked-table="${e(id)}" data-row="${row}" data-column="${column}" ${relation.error ? 'disabled' : ''} title="${e(relation.error || `Inspect linked row in ${relation.title}`)}" aria-label="${e(`Inspect ${table.columns[column]} link: ${String(value ?? 'empty')}`)}">${valueCell(value)} ${icon('arrow')}</button>${relation.error ? `<span class="link-unavailable">${e(relation.error)}</span>` : ''}</div>`;
   const content = expanded || isRich(value) ? renderRichValue(value, `${id}:${row}:${column}`, '#8abbff', context) : `<div class="table-cell">${valueCell(value)}</div>`;
   const nested = nestedTableRelations(table,column,row,context);
-  return `${content}${nested.length ? `<details class="nested-relations" ${expanded ? 'open' : ''}><summary>${nested.length} nested table ${nested.length===1?'link':'links'}</summary>${nested.map((link,index)=>`<div><button class="linked-cell" data-linked-table="${e(id)}" data-row="${row}" data-column="${column}" data-relation-index="${index}" ${link.error?'disabled':''} title="${e(link.error || link.title)}">${e(link.label)}${link.choice?` · ${e(link.choice)}`:''}: ${e(String(link.value ?? 'empty'))} ${icon('arrow')} <span class="dim">${e(link.title)}</span></button>${link.error?`<p class="link-unavailable">${e(link.error)}</p>`:''}</div>`).join('')}</details>` : ''}`;
+  return `${content}${nested.length ? `<details class="nested-relations" data-view-key="${e(JSON.stringify([id,row,column]))}" ${expanded ? 'open' : ''}><summary>${nested.length} nested table ${nested.length===1?'link':'links'}</summary>${nested.map((link,index)=>`<div><button class="linked-cell" data-linked-table="${e(id)}" data-row="${row}" data-column="${column}" data-relation-index="${index}" ${link.error?'disabled':''} title="${e(link.error || link.title)}">${e(link.label)}${link.choice?` · ${e(link.choice)}`:''}: ${e(String(link.value ?? 'empty'))} ${icon('arrow')} <span class="dim">${e(link.title)}</span></button>${link.error?`<p class="link-unavailable">${e(link.error)}</p>`:''}</div>`).join('')}</details>` : ''}`;
 }
 
 function renderRowFields(table, id, index) {
@@ -841,7 +850,7 @@ function renderConfusion(value) {
 
 function renderPlotly(value, id, color) {
   plotlyRegistry.set(id, {id, spec:value.spec, resources:value.resources});
-  return `<div class="plotly-container" data-plotly-id="${e(id)}" data-plotly-key="${e(id)}"><div class="chart-empty content-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>Loading Plotly figure…</span></div></div><details class="chart-table-disclosure"><summary>Full Plotly figure specification</summary><pre class="json-view">${e(JSON.stringify(value.spec || {},null,2))}</pre></details>`;
+  return `<div class="plotly-container" data-plotly-id="${e(id)}" data-plotly-key="${e(id)}"><div class="chart-empty content-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>Loading Plotly figure…</span></div></div><details class="chart-table-disclosure" data-view-key="${e(id)}"><summary>Full Plotly figure specification</summary><pre class="json-view">${e(JSON.stringify(value.spec || {},null,2))}</pre></details>`;
 }
 
 /** Resolve authenticated media separately from text rendering.
@@ -849,8 +858,8 @@ function renderPlotly(value, id, color) {
  * are embedded. This prevents logged values from leaking credentials to URLs.
  */
 async function hydrateMedia(root) {
-  hydrateVega(root, vegaRegistry);
-  hydratePlotly(root, plotlyRegistry, {getMediaUrl, mapOrigins:applicationConfig?.map_resource_origins || []});
+  const charts = Promise.all([hydrateVega(root, vegaRegistry),
+    hydratePlotly(root, plotlyRegistry, {getMediaUrl, mapOrigins:applicationConfig?.map_resource_origins || []})]);
   for (const element of root.querySelectorAll('[data-media]')) {
     const value = mediaRegistry.get(element.dataset.media);
     if (!value || element.dataset.mediaReady) continue;
@@ -878,6 +887,7 @@ async function hydrateMedia(root) {
       if (element.isConnected) { element.replaceChildren(node); element.dataset.mediaReady = 'true'; }
     } catch (error) { if (element.isConnected) { element.className = 'notice error'; element.textContent = `Could not load ${value._type}: ${error.message}`; } }
   }
+  await charts;
 }
 
 function renderSetup() {
@@ -903,7 +913,7 @@ function renderPinnedConfig(run) {
 const RUN_TABS = [['charts','Charts'],['overview','Overview'],['console','Logs'],['files','Files'],['artifacts','Artifacts']];
 function openRunPage(key, tab = 'charts') {
   const run=model.runs.find(item=>item.key===key);if(!run)return;
-  if(state.view!=='run')state.runReturn={view:state.view,page:state.runPage,scroll:[...app.querySelectorAll('.main,.run-list,.charts-area,.runs-table')].map(node=>({selector:'.'+[...node.classList][0],top:node.scrollTop,left:node.scrollLeft}))};
+  if(state.view!=='run')state.runReturn={view:state.view,page:state.runPage,snapshot:captureViewState(app)};
   state.project=projectKey(run);state.runKey=key;state.runTab=tab;state.view='run';
   updateLink(true);render();
 }
@@ -988,7 +998,8 @@ function exportMetric(metric) {
  */
 async function refresh({ refreshArchive = false } = {}) {
   if (request || !getAuthState().authenticated) return;
-  state.refreshing = true; if (state.initialized) render();
+  state.refreshing = true;
+  for (const button of app.querySelectorAll('[data-action="refresh"]')) button.disabled = true;
   request = new AbortController();
   try {
     const workspace = await withDeadline(signal => readWorkspace({signal, refreshArchive}), {signal:request.signal, timeoutMs:240000});
@@ -1018,7 +1029,11 @@ async function refresh({ refreshArchive = false } = {}) {
     if(workspaceSession)workspaceSession.ingest(displayEvents);
     else if(CUSTOM_WORKSPACES && chosenProject())await openWorkspaceView(new URLSearchParams(location.search).get('nw') || state.activeViews.get(state.project) || 'personal',{events:displayEvents,seed:currentSnapshot()});
   } catch (error) { state.auth = getAuthState(); state.error = error.message || 'Could not load the Foundry workspace.'; }
-  finally { request = null; state.loading = false; state.refreshing = false; state.initialized = true; render(); persist(); }
+  finally {
+    request = null; state.loading = false; state.refreshing = false; state.initialized = true;
+    for (const button of app.querySelectorAll('[data-action="refresh"]')) button.disabled = false;
+    refreshRenderer.request(); persist();
+  }
 }
 
 function initializeSelection() {
@@ -1105,7 +1120,7 @@ document.addEventListener('click', async event => {
         }
         break;
       }
-      case 'exit-run': { const previous=state.runReturn;state.view=previous?.view || 'workspace';state.runPage=previous?.page || 0;updateLink(true);render();for(const position of previous?.scroll || []){const node=app.querySelector(position.selector);if(node){node.scrollTop=position.top;node.scrollLeft=position.left;}}break;}
+      case 'exit-run': { const previous=state.runReturn;state.view=previous?.view || 'workspace';state.runPage=previous?.page || 0;updateLink(true);render({restore:previous?.snapshot});break;}
       case 'live': state.live = !state.live; render(); if (state.live) refresh({ refreshArchive: true }); break;
       case 'show-all-runs': for(const run of filteredRuns())state.hiddenRuns.delete(run.key);persist();render();break;
       case 'hide-all-runs': for(const run of filteredRuns())state.hiddenRuns.add(run.key);persist();render();break;
