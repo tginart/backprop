@@ -99,7 +99,8 @@ def verify(root, output, browser=False):
             (output/'website-manifest.json').write_text(json.dumps(asset_manifest,indent=2)+'\n')
             report['website']={'files':len(z.namelist()),'compressed_bytes':len(archive),'uncompressed_bytes':sum(r.file_size for r in z.infolist())}
         if browser:
-            for name in ['browser_request_recovery.mjs','browser_refresh_state_qa.mjs','browser_expansion_qa.mjs','browser_plotly_qa.mjs','browser_maps_qa.mjs','ui_workflow_reference_qa.mjs']:
+            run('chart-interactions',['node','--test',str(work/'tests/test_frontend_charts.mjs')],work,{**runtime,'CHARTS_BROWSER':'1'})
+            for name in ['browser_chart_smoothing_qa.mjs','browser_request_recovery.mjs','browser_refresh_state_qa.mjs','browser_expansion_qa.mjs','browser_plotly_qa.mjs','browser_maps_qa.mjs','ui_workflow_reference_qa.mjs']:
                 run(name.removesuffix('.mjs'),['node',str(work/'tests'/name)],work,{**runtime,'PYTHON':sys.executable})
             if (work/'test-results').exists():shutil.copytree(work/'test-results',output/'browser-evidence',dirs_exist_ok=True)
         else:report['skips'].append('Actual browser checks not requested for this run.')

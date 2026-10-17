@@ -154,8 +154,8 @@
     },
     {
       "path": "docs/interface.md",
-      "bytes": 3524,
-      "sha256": "cc116db9b69f5238fcbcf640ced9918fade888416f2af71a4cb4c5be05213100"
+      "bytes": 3822,
+      "sha256": "d3a69ee81d986b511eccaa415ef3d277bd052b405ba6f666b5365788405880d3"
     },
     {
       "path": "docs/python-api-support.md",
@@ -1378,6 +1378,11 @@
       "sha256": "e2cd81acbc8fde98cc5399457d3965651a2f8ccc92cd80e06a007f50d4efbda5"
     },
     {
+      "path": "tests/browser_chart_smoothing_qa.mjs",
+      "bytes": 8577,
+      "sha256": "a81a80a55f8a760b82b75994ce76da33770b0ca47d793ffb39b5d026510f8187"
+    },
+    {
       "path": "tests/browser_chart_tooltip_qa.mjs",
       "bytes": 6239,
       "sha256": "47bd9bceb461486733939e5edbf914dfc78be18a9d37443a0dfdf97e632031b5"
@@ -2404,8 +2409,8 @@
     },
     {
       "path": "tests/test_frontend_charts.mjs",
-      "bytes": 10619,
-      "sha256": "5179a6c1a75e3dc399ea57a4e1667b4bf46c616b58b56be73dd2e8e245f180ef"
+      "bytes": 14475,
+      "sha256": "34b242fda0553ff7f3a110d580d6003d6bca110e81a143b36e04086e876b8382"
     },
     {
       "path": "tests/test_frontend_console.mjs",
@@ -3359,8 +3364,8 @@
     },
     {
       "path": "tools_verify_release.py",
-      "bytes": 9769,
-      "sha256": "fbb3ee00dfc20f3c42f3c21e8994d8f0659aa0b59cae6ea60e028b7350610cdb"
+      "bytes": 9939,
+      "sha256": "f0dcc954f391d7e505db33bc1619cc3c123f0b58de7d911ba67ef76e7c10ace8"
     },
     {
       "path": "web/africa_110m.json",
@@ -3389,8 +3394,8 @@
     },
     {
       "path": "web/app.mjs",
-      "bytes": 156357,
-      "sha256": "d7de6604f868e15a5b1f4b65687ae1b6a3c468b07ef469ef9e0e1b3e4c5248ac"
+      "bytes": 158696,
+      "sha256": "a9cae4828d380bd07dd186561ec404ee2ab01ad30384687f63e3d96fedeb618a"
     },
     {
       "path": "web/artifact-collections.mjs",
@@ -3429,8 +3434,8 @@
     },
     {
       "path": "web/charts.mjs",
-      "bytes": 22380,
-      "sha256": "1a43ac8a560fb3a454984f0e43131f8c8cc5cc2fb2b718ec501b42b82b6b3ab5"
+      "bytes": 25738,
+      "sha256": "4f772f78e4033255659afe775ca6c3b4596d516f00bee0d17fe1f98ad1700e9f"
     },
     {
       "path": "web/console-view.mjs",
@@ -3754,8 +3759,8 @@
     },
     {
       "path": "web/workspace.css",
-      "bytes": 51490,
-      "sha256": "2b65c1e8608a651a4bf18b015679276ddc38d2209a6d616b3ab9af7ffff8c86b"
+      "bytes": 51907,
+      "sha256": "dc48a8e6c562c8689630822eabe60b5ebed3655ca51283cd46c01fb9d34f9ede"
     },
     {
       "path": "web/workspace.mjs",
