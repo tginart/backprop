@@ -554,11 +554,41 @@ function renderMetricCard(metric, runs, expanded = false) {
   const total = series.reduce((sum, s) => sum + s.points.length, 0);
   const pinned = state.pinnedPanels.has(panelKey(state.project, metric)), custom = Object.keys(state.panelSettings.get(panelKey(state.project, metric)) || {}).length > 0;
   const label = options.title === metric && metric.includes('/') ? `<span class="prefix">${e(metric.split('/').slice(0, -1).join('/'))}/</span>${e(metric.split('/').at(-1))}` : e(options.title);
+  const smoothing = ['line','area'].includes(options.kind) ? `<div class="chart-smoothing"><label><span>Smoothing</span><input type="range" data-panel-smoothing="${e(metric)}" aria-label="Smoothing for ${e(options.title)}" aria-valuetext="${options.smoothing ? options.smoothing.toFixed(2) : 'Off'}" min="0" max="0.98" step="0.01" value="${options.smoothing}" ${spec ? '' : 'disabled'}><output>${options.smoothing.toFixed(2)}</output></label></div>` : '';
   const legend = options.showLegend ? `<div class="panel-legend">${all.map(s => `<button class="legend-row ${series.includes(s) ? '' : 'muted-series'}" data-legend-metric="${e(metric)}" data-series="${e(s.key)}" aria-pressed="${series.includes(s)}" title="Toggle ${e(s.name)}"><span class="dot" style="background:${s.color}"></span><span class="legend-name">${e(s.name)}</span><span class="legend-value">${f(s.points.at(-1)?.y)}</span></button>`).join('')}</div>` : '';
-  return `<article class="chart-card arranged-panel" data-metric="${e(metric)}" style="--panel-span:${Math.min(state.columns,panelOptions(layout(),metric).span || 1)};--panel-height:${panelOptions(layout(),metric).height || 270}px"><div class="chart-header">${CUSTOM_WORKSPACES?`<button class="panel-drag" draggable="true" data-panel-drag="${e(metric)}" aria-label="Drag ${e(metric)} panel" title="Drag panel">⠿</button>`:''}<h3 class="chart-title" title="${e(options.title)}">${label}</h3><div class="chart-actions">${CUSTOM_WORKSPACES?`<button class="icon-btn ${custom ? 'active' : ''}" data-edit-panel="${e(metric)}" title="Edit panel" aria-label="Edit ${e(metric)} panel">${icon('settings')}</button>`:''}${state.zoom.has(metric) ? `<button class="icon-btn" data-reset-chart="${e(metric)}" title="Reset zoom" aria-label="Reset zoom">${icon('reset')}</button>` : ''}${expanded ? '' : `<button class="icon-btn" data-expand="${e(metric)}" title="Expand chart" aria-label="Expand ${e(metric)}">${icon('expand')}</button>`}<button class="icon-btn" data-panel-menu="${e(metric)}" aria-label="Actions for ${e(panelTitle(metric))} panel" aria-haspopup="menu">⋯</button></div></div><div class="chart-subtitle">${series.length} ${options.groupBy ? 'group' : options.sharedWriters ? 'writer stream' : 'run'}${series.length !== 1 ? 's' : ''}${options.secondMetric ? ' / metric pairs' : ''} · ${f(total)} points${options.availableRuns>options.shownRuns?` · first ${options.shownRuns} of ${options.availableRuns} matching runs`:''} ${state.zoom.has(metric) ? '<span class="zoom-note">· zoomed</span>' : ''}${options.logScale ? ' · positive values only' : ''}${options.mixedAxes?' · mixed declared axes':''}${custom ? ' · custom settings' : ''}</div>${legend}<div class="chart-plot" data-chart="${id}">${error?`<div class="chart-empty" role="status">${e(error)}</div>`:renderChart(spec, id)}</div><div class="chart-footer"><span>${e(options.xLabel)}</span><span>Hover or use arrow keys to inspect</span>${expanded || !CUSTOM_WORKSPACES ? "" : `<button class="panel-resizer" data-panel-resize="${e(metric)}" aria-label="Resize ${e(metric)} panel" title="Drag to resize; arrow keys resize">◢</button>`}</div></article>`;
+  return `<article class="chart-card arranged-panel" data-metric="${e(metric)}" style="--panel-span:${Math.min(state.columns,panelOptions(layout(),metric).span || 1)};--panel-height:${panelOptions(layout(),metric).height || 270}px"><div class="chart-header">${CUSTOM_WORKSPACES?`<button class="panel-drag" draggable="true" data-panel-drag="${e(metric)}" aria-label="Drag ${e(metric)} panel" title="Drag panel">⠿</button>`:''}<h3 class="chart-title" title="${e(options.title)}">${label}</h3><div class="chart-actions">${CUSTOM_WORKSPACES?`<button class="icon-btn ${custom ? 'active' : ''}" data-edit-panel="${e(metric)}" title="Edit panel" aria-label="Edit ${e(metric)} panel">${icon('settings')}</button>`:''}${state.zoom.has(metric) ? `<button class="icon-btn" data-reset-chart="${e(metric)}" title="Reset zoom" aria-label="Reset zoom">${icon('reset')}</button>` : ''}${expanded ? '' : `<button class="icon-btn" data-expand="${e(metric)}" title="Expand chart" aria-label="Expand ${e(metric)}">${icon('expand')}</button>`}<button class="icon-btn" data-panel-menu="${e(metric)}" aria-label="Actions for ${e(panelTitle(metric))} panel" aria-haspopup="menu">⋯</button></div></div><div class="chart-subtitle">${series.length} ${options.groupBy ? 'group' : options.sharedWriters ? 'writer stream' : 'run'}${series.length !== 1 ? 's' : ''}${options.secondMetric ? ' / metric pairs' : ''} · ${f(total)} points${options.availableRuns>options.shownRuns?` · first ${options.shownRuns} of ${options.availableRuns} matching runs`:''} ${state.zoom.has(metric) ? '<span class="zoom-note">· zoomed</span>' : ''}${options.logScale ? ' · positive values only' : ''}${options.mixedAxes?' · mixed declared axes':''}${custom ? ' · custom settings' : ''}</div>${legend}${smoothing}<div class="chart-plot" data-chart="${id}">${error?`<div class="chart-empty" role="status">${e(error)}</div>`:renderChart(spec, id)}</div><div class="chart-footer"><span>${e(options.xLabel)}</span><span>Hover or use arrow keys to inspect</span>${expanded || !CUSTOM_WORKSPACES ? "" : `<button class="panel-resizer" data-panel-resize="${e(metric)}" aria-label="Resize ${e(metric)} panel" title="Drag to resize; arrow keys resize">◢</button>`}</div></article>`;
 }
 function axisName(axis = state.xAxis) { return ({ _step: 'Step', _runtime: 'Relative time (s)', _timestamp: 'Wall time', defined: 'Defined step' })[axis] || axis; }
 function bindCharts(root) { for (const element of root.querySelectorAll('[data-chart]')) { const entry = chartRegistry.get(element.dataset.chart); if (entry) bindChart(element, entry.spec, range => { range ? state.zoom.set(entry.key, range) : state.zoom.delete(entry.key); if (chartDialog.open && entry.metric) expandChart(entry.metric); else if (root === detailDialog && detailDialog.open) openRun(detailDialog.dataset.run, state.dialogTab); else render(); }); } }
+
+/** Redraw only this metric while the slider keeps focus and pointer capture.
+ * Main callers: delegated input/change events. Compact and expanded copies stay
+ * in sync, zoom is retained, and the existing browser preferences save on change.
+ */
+function updatePanelSmoothing(target) {
+  const metric = target.dataset.panelSmoothing, smoothing = Number(target.value);
+  if (!finite(smoothing) || smoothing < 0 || smoothing >= 1) return;
+  const key = panelKey(state.project,metric), settings = state.panelSettings.get(key) || {};
+  if (settings.smoothing === smoothing) return;
+  state.panelSettings.set(key,{...settings,smoothing});
+  const {all,series,spec} = metricPanel(metric,chartRuns());
+  for (const card of document.querySelectorAll('.chart-card[data-metric]')) {
+    if (card.dataset.metric !== metric) continue;
+    const plot = card.querySelector('[data-chart]'), entry = chartRegistry.get(plot?.dataset.chart);
+    if (!entry) continue;
+    chartRegistry.set(plot.dataset.chart,{...entry,spec,series});
+    plot.innerHTML = renderChart(spec,plot.dataset.chart);
+    bindCharts(card);
+    const control = card.querySelector('[data-panel-smoothing]');
+    control.value = smoothing;
+    control.setAttribute('aria-valuetext',smoothing ? smoothing.toFixed(2) : 'Off');
+    control.closest('label').querySelector('output').textContent = smoothing.toFixed(2);
+    for (const row of card.querySelectorAll('[data-series]')) {
+      const line = all.find(series=>series.key===row.dataset.series);
+      if (line) row.querySelector('.legend-value').textContent = f(line.points.at(-1)?.y);
+    }
+  }
+}
 
 /** Use the same filtered/sorted runs as the workspace sidebar.
  * Main callers: renderMain. Config and summary columns keep qualified identity.
@@ -1159,6 +1189,7 @@ document.addEventListener('click', async event => {
 });
 
 async function updateControl(event) {
+  if (event.target.dataset.panelSmoothing !== undefined) { updatePanelSmoothing(event.target); persist(); return; }
   const target = event.target;
   if(target.dataset.artifactVersion!==undefined){state.artifactSelection.version=target.value;updateLink(true);render();return;}
   if(target.dataset.comparerOption){const id=panelKey(state.project,target.dataset.comparer),current=state.panelSettings.get(id)||{};state.panelSettings.set(id,{...current,[target.dataset.comparerOption]:target.type==='checkbox'?target.checked:target.value});persist();render();return;}
@@ -1185,7 +1216,8 @@ async function updateControl(event) {
   persist(); render();
 }
 document.addEventListener('input', event => {
-  if (event.target.type === 'search') updateControl(event).catch(error=>toast(error.message));
+  if (event.target.dataset.panelSmoothing !== undefined) { try { updatePanelSmoothing(event.target); } catch(error) { toast(error.message); } }
+  else if (event.target.type === 'search') updateControl(event).catch(error=>toast(error.message));
   else if (event.target.dataset.state === 'smoothing') { state.smoothing = Number(event.target.value); document.querySelector('.smoothing-value').textContent = state.smoothing.toFixed(2); }
 });
 document.addEventListener('change', event => { if (event.target.type !== 'search') updateControl(event).catch(error=>toast(error.message)); });
