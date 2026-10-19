@@ -53,6 +53,13 @@ export function replaceView(root, html) {
     const prior=plots.get(next.dataset.plotlyKey); if(!prior)continue;
     plots.delete(next.dataset.plotlyKey);next.replaceWith(prior);
   }
+  // A pending view belongs to its original hydration promise. Recreate it so
+  // the current render waits for its dimensions before the final scroll retry.
+  const vegas = new Map([...root.querySelectorAll('[data-vega-key][data-vega-ready]')].map(node=>[node.dataset.vegaKey,node]));
+  for (const next of template.content.querySelectorAll('[data-vega-key]')) {
+    const prior=vegas.get(next.dataset.vegaKey); if(!prior)continue;
+    vegas.delete(next.dataset.vegaKey);next.replaceWith(prior);
+  }
   for (const prior of root.querySelectorAll('[data-plotly-key]')) prior.dispatchEvent(new Event('backprop:dispose'));
   root.replaceChildren(template.content);
   for (const [player, state] of players) {

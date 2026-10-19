@@ -53,12 +53,26 @@ export function prepareVega(value) {
   return spec;
 }
 
+/**
+ * Purpose: Mount new charts and resize retained charts in the current layout.
+ * Input: The view root and the chart registry.
+ * Output: A promise for all chart dimensions to become available.
+ * Note: Retained views keep their signal values and bound controls.
+ */
 export async function hydrateVega(root, registry) {
   for (const [node, view] of views) if (!node.isConnected) { view.finalize(); views.delete(node); }
-  await Promise.all([...root.querySelectorAll('[data-vega-id]:not([data-vega-ready]):not([data-vega-pending])')].map(async node => {
-    node.dataset.vegaPending = 'true';
+  await Promise.all([...root.querySelectorAll('[data-vega-id]:not([data-vega-pending])')].map(async node => {
+    if (!node.dataset.vegaReady) node.dataset.vegaPending = 'true';
     try {
       const value = registry.get(node.dataset.vegaId);
+      if (node.dataset.vegaReady) {
+        const view = views.get(node);
+        // Vega-Lite container dimensions otherwise update only on window resize.
+        if (value.spec.width === 'container') view.width(node.clientWidth);
+        // This host has auto height. Its SVG and controls cannot set inner height.
+        await view.resize().runAsync();
+        return;
+      }
       const input = prepareVega(value);
       await runtime();
       if (!node.isConnected) return;

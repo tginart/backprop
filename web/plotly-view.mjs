@@ -327,6 +327,7 @@ export function preparePlotlyAnimations(figure,Plotly) {
 
 const libraries=new Map();let loading=Promise.resolve();
 const mounted = new WeakMap();
+const pendingMounts = new WeakMap();
 /** Load pinned renderers serially and retain their independent instances.
  * Main callers: mount. Plotly4 removed Mapbox traces, so genuine3.6 handles
  * those figures without rewriting legacy attributes, styles or credentials.
@@ -345,30 +346,43 @@ const rendererVersion=entry=>usesLegacyMap(entry.spec)?'3.6.0':'4.1.1';
 const fingerprint=entry=>JSON.stringify([entry.spec,entry.resources]);
 const element = (tag, className, text) => {const node=document.createElement(tag);node.className=className;if(text!==undefined)node.textContent=text;return node;};
 
-/** Hydrate only new charts; preserved nodes retain zoom, legend and animation.
- * Main callers: app hydrateMedia after every render. Disposal aborts pending
- * display work and releases Plotly listeners/canvases and the resize observer.
+/**
+ * Purpose: Hydrate new charts and await their dimensions before scroll restore.
+ * Input: The view root, the chart registry, and the resource access options.
+ * Output: A promise for all current mounts and retained chart updates.
+ * Note: Concurrent callers share the same mount promise for each container.
+ * Disposal releases Plotly listeners, canvases, and the resize observer.
  */
-export function hydratePlotly(root, registry, options={}) {
+export async function hydratePlotly(root, registry, options={}) {
+  const tasks = [];
   for (const container of root.querySelectorAll('[data-plotly-id]')) {
     const entry=registry.get(container.dataset.plotlyId); if(!entry)continue;
     let current=mounted.get(container);const signature=fingerprint(entry);
     if(current && current.version!==rendererVersion(entry)){container.dispatchEvent(new Event('backprop:dispose'));delete container.dataset.plotlyReady;current=null;}
-    if(current)current.updates.request(entry,signature);
+    if(current){current.updates.request(entry,signature);tasks.push(current.updates.pending);}
     if(!current && container.dataset.plotlyFingerprint!==signature)delete container.dataset.plotlyReady;
-    if (container.dataset.plotlyReady || container.dataset.plotlyLoading) continue;
+    if (container.dataset.plotlyReady) continue;
+    const pending = pendingMounts.get(container);
+    if (pending) { tasks.push(pending); continue; }
     container.dataset.plotlyFingerprint=signature;container.dataset.plotlyLoading='true';
-    mount(container,entry,options).then(()=>{if(container.isConnected)hydratePlotly(root,registry,options);}).catch(error=> {
+    const task = mount(container,entry,options).then(()=>{
+      if(container.isConnected)return hydratePlotly(root,registry,options);
+    }).catch(error=> {
       if (!container.isConnected) return;
       container.dispatchEvent(new Event('backprop:dispose'));
       const latest=registry.get(container.dataset.plotlyId);
-      if(latest&&fingerprint(latest)!==signature){delete container.dataset.plotlyLoading;delete container.dataset.plotlyReady;hydratePlotly(root,registry,options);return;}
+      if(latest&&fingerprint(latest)!==signature){pendingMounts.delete(container);delete container.dataset.plotlyLoading;delete container.dataset.plotlyReady;return hydratePlotly(root,registry,options);}
       delete container.dataset.plotlyLoading;container.dataset.plotlyReady='error';
       const notice=element('div','notice error',`Could not render this Plotly figure: ${error.message}`);notice.setAttribute('role','alert');
       const retry=element('button','btn small','Retry chart');retry.addEventListener('click',()=>{delete container.dataset.plotlyReady;hydratePlotly(root,registry,options);});
       container.replaceChildren(notice,retry);
+    }).finally(() => {
+      if (pendingMounts.get(container) === task) pendingMounts.delete(container);
     });
+    pendingMounts.set(container, task);
+    tasks.push(task);
   }
+  await Promise.all(tasks);
 }
 async function mount(container,entry,options) {
   let prepared=preparePlotly(await resolvePlotlyResources(entry,options),entry.id);

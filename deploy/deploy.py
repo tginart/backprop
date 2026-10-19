@@ -33,7 +33,7 @@ PUBLIC_ASSETS += ("plotly-resources.mjs", "plotly-strict-3.6.0.min.js",
                   "plotly-map-sat.json", "plotly-map-hybrid.json", "plotly-map-LICENSE.txt",
                   "plotly-topology-provenance.json")
 PUBLIC_ASSETS += ("sha256.mjs", "tensorboard-replay.mjs", "plotly-reset.mjs")
-PUBLIC_ASSETS += ("artifact-collections.mjs",)
+PUBLIC_ASSETS += ("artifact-collections.mjs", "view-state.mjs")
 PUBLIC_ASSETS += ("tensorboard-groups.mjs", "tensorboard-summary.mjs")
 PUBLIC_ASSETS += ("chart-series.mjs", "experience.mjs", "workspace-store.mjs", "workspace-session.mjs", "panel-catalog.mjs",
                   "panel-bank.mjs", "project-pages.mjs", "run-comparer.mjs", "chart-defaults.mjs")
