@@ -227,6 +227,8 @@ try{
  await _verifyPickerCompletion({open,settle});
  await _verifyPendingPlotly({open,settle});
  await _verifyVegaResize({open,vega});
+ await _verifyVegaHeight({open,vega});
+ await _verifyLargeChartCapture({open});
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({scroll:['workspace','single-run','logs','mobile','nested-table-xy','legend','full-runs-table','mobile-return'],state:['disclosures','focus-caret','vega','media-playback','zoom','visibility','selection','sections','pagination'],interactions:['in-flight-menu','in-flight-dialog','pointer','native-select','color-picker','composition','text-selection','chart-inspection'],rendersPerRefresh:1,pageErrors:0}));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
@@ -587,6 +589,138 @@ async function _verifyVegaResize({open, vega}) {
             'A narrower panel must resize its retained chart');
         assert.equal(result.same, true);
         assert.equal(result.control, '7');
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Keep an auto-height Vega host stable across repeated refreshes.
+ * Input: A browser page and the table for a container-height chart.
+ * Output: Assertions for stable dimensions, node identity, and a bound control.
+ */
+async function _verifyVegaHeight({open, vega}) {
+    const {page} = await open();
+    try {
+        const result = await page.evaluate(async value => {
+            const {hydrateVega} = await import('/vega-view.mjs');
+            const {replaceView} = await import('/media-view.mjs');
+            const root = document.createElement('div');
+            root.style.width = '400px';
+            document.body.append(root);
+            const html = '<div class="plotly-container" ' +
+                'data-vega-id="auto-height-vega" ' +
+                'data-vega-key="auto-height-vega"></div>';
+            const registry = new Map([['auto-height-vega', {
+                table: value.table,
+                spec: {
+                    width: 300, height: 'container', mark: 'point',
+                    params: [{name: 'inspection', value: 0,
+                        bind: {input: 'range', min: 0, max: 10}}],
+                    encoding: {
+                        x: {field: 'x', type: 'quantitative'},
+                        y: {field: 'y', type: 'quantitative'},
+                    },
+                },
+            }]]);
+            root.innerHTML = html;
+            await hydrateVega(root, registry);
+            const node = root.firstElementChild;
+            const input = node.querySelector('input');
+            input.value = '7';
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+            const heights = [node.clientHeight];
+            for (let refresh = 0; refresh < 5; refresh++) {
+                replaceView(root, html);
+                await hydrateVega(root, registry);
+                heights.push(node.clientHeight);
+            }
+            const same = root.firstElementChild === node;
+            const control = root.querySelector('input').value;
+            root.remove();
+            return {heights, same, control};
+        }, vega);
+        assert(result.heights[0] > 0, 'The chart must have a rendered height');
+        assert(result.heights.every(height => height === result.heights[0]),
+            `An auto-height chart must not grow: ${JSON.stringify(result)}`);
+        assert.equal(result.same, true);
+        assert.equal(result.control, '7');
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Capture HTML state without a scroll read for each chart mark.
+ * Input: A browser page with a large SVG and an arbitrary HTML scroll pane.
+ * Output: Assertions for bounded SVG reads and restored nested HTML state.
+ */
+async function _verifyLargeChartCapture({open}) {
+    const {page} = await open();
+    try {
+        const result = await page.evaluate(async () => {
+            const {captureViewState, restoreViewState} =
+                await import('/view-state.mjs');
+            const root = document.createElement('div');
+            document.body.append(root);
+            const html = '<div data-view-key="large-chart-scroll" ' +
+                'style="width:280px;height:160px;overflow:auto">' +
+                '<svg width="800" height="1000">' +
+                '<circle cx="20" cy="20" r="2"/>'.repeat(30000) +
+                '</svg></div><details><summary>Details</summary>' +
+                '<input value="inspection"></details>';
+            root.innerHTML = html;
+            const pane = root.firstElementChild;
+            pane.scrollTop = 240;
+            pane.scrollLeft = 80;
+            root.querySelector('details').open = true;
+            const input = root.querySelector('input');
+            input.focus({preventScroll: true});
+            input.setSelectionRange(1, 5, 'backward');
+            let svgScrollReads = 0;
+            const originals = new Map();
+            for (const property of ['scrollTop', 'scrollLeft']) {
+                originals.set(property, Object.getOwnPropertyDescriptor(
+                    SVGElement.prototype, property
+                ));
+                Object.defineProperty(SVGElement.prototype, property, {
+                    configurable: true,
+                    get() { svgScrollReads++; return 0; },
+                });
+            }
+            try {
+                const before = [pane.scrollTop, pane.scrollLeft];
+                const snapshot = captureViewState(root);
+                root.innerHTML = html;
+                restoreViewState(root, snapshot);
+                return {
+                    svgScrollReads, before,
+                    after: [root.firstElementChild.scrollTop,
+                        root.firstElementChild.scrollLeft],
+                    open: root.querySelector('details').open,
+                    focus: document.activeElement === root.querySelector('input'),
+                    caret: [document.activeElement.selectionStart,
+                        document.activeElement.selectionEnd],
+                };
+            } finally {
+                for (const [property, descriptor] of originals) {
+                    if (descriptor) {
+                        Object.defineProperty(SVGElement.prototype,
+                            property, descriptor);
+                    } else {
+                        delete SVGElement.prototype[property];
+                    }
+                }
+                root.remove();
+            }
+        });
+        assert.equal(result.svgScrollReads, 0,
+            'State capture must not read scroll properties for SVG marks');
+        assert(result.before[0] > 0 && result.before[1] > 0);
+        assert.deepEqual(result.after, result.before);
+        assert.equal(result.open, true);
+        assert.equal(result.focus, true);
+        assert.deepEqual(result.caret, [1, 5]);
     } finally {
         await page.close();
     }

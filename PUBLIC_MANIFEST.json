@@ -1424,8 +1424,8 @@
     },
     {
       "path": "tests/browser_refresh_state_qa.mjs",
-      "bytes": 34989,
-      "sha256": "9f419e3f35a2c8f1a4fee6171b4df3b1d752f3337a45b44d6b6ecfc6501c2abd"
+      "bytes": 40962,
+      "sha256": "7b786cf5306090f4d5ca5e92ca77599f9e34b9d1fa7aaebaa0a5ee3a3c04790c"
     },
     {
       "path": "tests/browser_request_recovery.mjs",
@@ -3734,13 +3734,13 @@
     },
     {
       "path": "web/vega-view.mjs",
-      "bytes": 4476,
-      "sha256": "983f9cf0e381949b9dbcfa4aae856967d6302e66ac051088c5d63c823055a4e2"
+      "bytes": 4481,
+      "sha256": "278f7b2b68cacb632563dd9be09c760424f3025e5ca113b5615d4b9d94998fdf"
     },
     {
       "path": "web/view-state.mjs",
-      "bytes": 5909,
-      "sha256": "d0e5e435e2d75e648ad7d58b7328fa643466360b7de5a0af26f30e84c81ff5b0"
+      "bytes": 6574,
+      "sha256": "2d4df0b339b37df58d1a5952f5a638bedb46ce32e8d4ff193c6dfe0455bc70d6"
     },
     {
       "path": "web/workspace-layout.mjs",

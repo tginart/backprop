@@ -69,7 +69,7 @@ export async function hydrateVega(root, registry) {
         const view = views.get(node);
         // Vega-Lite container dimensions otherwise update only on window resize.
         if (value.spec.width === 'container') view.width(node.clientWidth);
-        if (value.spec.height === 'container') view.height(node.clientHeight);
+        // This host has auto height. Its SVG and controls cannot set inner height.
         await view.resize().runAsync();
         return;
       }

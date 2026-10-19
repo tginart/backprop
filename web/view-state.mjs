@@ -28,14 +28,35 @@ function find(root, path) {
   return node;
 }
 
+/**
+ * Purpose: Capture browser state without a traversal of chart SVG marks.
+ * Input: The HTML view root.
+ * Output: The scroll positions, disclosures, and active control state.
+ * Note: All HTML containers remain eligible, including nested chart controls.
+ */
 export function captureViewState(root) {
-  const nodes = [root, ...root.querySelectorAll('*')], active = document.activeElement;
-  return {
-    scroll: nodes.filter(node => node.scrollTop || node.scrollLeft).map(node => ({path:pathTo(root,node), top:node.scrollTop, left:node.scrollLeft})),
-    page: {node:document.scrollingElement, top:document.scrollingElement.scrollTop, left:document.scrollingElement.scrollLeft},
-    details: nodes.filter(node => node.tagName === 'DETAILS').map(node => ({path:pathTo(root,node), open:node.open})),
-    focus: root.contains(active) ? {path:pathTo(root,active), start:active.selectionStart, end:active.selectionEnd, direction:active.selectionDirection} : null,
-  };
+    const scroll = [], details = [], active = document.activeElement;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+        // Chart SVG mark trees contain no scroll or disclosure state.
+        acceptNode: node => node.namespaceURI === 'http://www.w3.org/2000/svg'
+            ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    for (let node = root; node; node = walker.nextNode()) {
+        const top = node.scrollTop, left = node.scrollLeft;
+        if (top || left) scroll.push({path: pathTo(root, node), top, left});
+        if (node.tagName === 'DETAILS') {
+            details.push({path: pathTo(root, node), open: node.open});
+        }
+    }
+    const page = document.scrollingElement;
+    return {
+        scroll, details,
+        page: {node: page, top: page.scrollTop, left: page.scrollLeft},
+        focus: root.contains(active) ? {
+            path: pathTo(root, active), start: active.selectionStart,
+            end: active.selectionEnd, direction: active.selectionDirection,
+        } : null,
+    };
 }
 
 export function restoreViewState(root, snapshot) {
