@@ -1424,8 +1424,8 @@
     },
     {
       "path": "tests/browser_refresh_state_qa.mjs",
-      "bytes": 18526,
-      "sha256": "2b05e27dfcc02d0692f42a5f507ced688d9d199f0645e13a23c5abc1910ebad5"
+      "bytes": 25777,
+      "sha256": "7906729b64c33826f2fd688b8622c79cf4899262c83e49778ff00e60cbb515b0"
     },
     {
       "path": "tests/browser_request_recovery.mjs",
@@ -3394,8 +3394,8 @@
     },
     {
       "path": "web/app.mjs",
-      "bytes": 158696,
-      "sha256": "a9cae4828d380bd07dd186561ec404ee2ab01ad30384687f63e3d96fedeb618a"
+      "bytes": 158721,
+      "sha256": "d0046688f91f67e2ea739d6a8a3726660d9a46b4abf4f64c53c64561a49b70df"
     },
     {
       "path": "web/artifact-collections.mjs",
@@ -3494,8 +3494,8 @@
     },
     {
       "path": "web/media-view.mjs",
-      "bytes": 11387,
-      "sha256": "b158e557a1c85c438833f17fd85893abb0817b478358f2cc721bd6d5ea33d562"
+      "bytes": 11510,
+      "sha256": "86bf49a0ad27f5794c7b46685f026a8f39258d6888c6625ece953c9f08364b2b"
     },
     {
       "path": "web/model.mjs",
@@ -3739,8 +3739,8 @@
     },
     {
       "path": "web/view-state.mjs",
-      "bytes": 5263,
-      "sha256": "7db3079c680b37e1f47f5f12c5ee2be741b6be1f81a7d6078c5288ed285d5c4b"
+      "bytes": 5630,
+      "sha256": "3e424ec5030693ee0bca0c96edbb6cf60aefabbd0ec932cbe6f2a0d1f9fb9253"
     },
     {
       "path": "web/workspace-layout.mjs",

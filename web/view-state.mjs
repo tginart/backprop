@@ -66,19 +66,32 @@ export function restoreViewState(root, snapshot) {
   return restoreScroll;
 }
 
-/** Polling may read data while someone inspects a menu/chart, edits through a
- * native picker, composes text, or drags. Apply its render after they finish.
- * Recheck at completion too: an interaction may start during the request.
+/**
+ * Purpose: Apply a refresh after the active user interaction ends.
+ * Input: The view root and the function that replaces its content.
+ * Output: Functions that request or cancel a deferred refresh.
+ * Note: Control focus alone does not indicate an open native picker.
  */
 export function createRefreshRenderer(root, render) {
   let pending = false, pointer = false, dragging = false, composing = false, timer;
+  const hasOpenSelector = CSS.supports('selector(:open)');
   const blocked = () => {
-    const active = document.activeElement, selection = document.getSelection();
+    const selection = document.getSelection();
     return pointer || dragging || composing || document.querySelector('dialog[open],.action-menu:popover-open,.chart-tooltip:popover-open') ||
-      root.contains(active) && active.matches('select,input[type="color"],input[type="range"]') ||
       selection && !selection.isCollapsed && root.contains(selection.anchorNode);
   };
-  const flush = () => { if (pending && !blocked()) { pending = false; render(); } };
+  const flush = () => {
+    if (!pending) return;
+    if (hasOpenSelector && root.querySelector('select:open,input:open')) {
+      // Native popups can consume pointerup and close without a DOM event.
+      // Check only the open popup until it closes, then apply the pending data.
+      pointer = false;
+      clearTimeout(timer);
+      timer = setTimeout(flush, 100);
+      return;
+    }
+    if (!blocked()) { pending = false; render(); }
+  };
   const schedule = () => { if (pending) { clearTimeout(timer); timer = setTimeout(flush, 0); } };
   document.addEventListener('pointerdown', event => { if (root.contains(event.target)) pointer = true; }, true);
   for (const type of ['pointerup','pointercancel']) document.addEventListener(type, () => { pointer = false; schedule(); }, true);
@@ -86,7 +99,7 @@ export function createRefreshRenderer(root, render) {
   document.addEventListener('dragend', () => { dragging = false; pointer = false; schedule(); }, true);
   document.addEventListener('compositionstart', event => { if (root.contains(event.target)) composing = true; }, true);
   document.addEventListener('compositionend', () => { composing = false; schedule(); }, true);
-  for (const type of ['close','toggle','focusout','change','click','keydown','selectionchange']) document.addEventListener(type, schedule, true);
+  for (const type of ['close','toggle','focusout','change','cancel','click','keydown','keyup','selectionchange']) document.addEventListener(type, schedule, true);
   window.addEventListener('blur', () => { pointer = false; dragging = false; composing = false; schedule(); });
-  return {request:() => { pending = true; flush(); }, cancel:() => { pending = false; }};
+  return {request:() => { pending = true; flush(); }, cancel:() => { pending = false; clearTimeout(timer); }};
 }

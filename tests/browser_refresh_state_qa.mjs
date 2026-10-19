@@ -148,13 +148,11 @@ try{
  await page.keyboard.press('Escape');
  await page.waitForFunction(before=>window.replacements>before,before);
  assert.equal(await page.locator('.charts-area').evaluate(node=>node.scrollTop),450);
- // Pointer resizing, native select focus, and IME composition defer completion.
- for(const kind of ['pointer','select','color','composition','selection']){
+ // Pointer resizing, text selection, and IME composition defer completion.
+ for(const kind of ['pointer','composition','selection']){
   if(kind==='pointer'){const box=await page.locator('[data-sidebar-resize]').boundingBox();await page.mouse.move(box.x+box.width/2,box.y+20);await page.mouse.down();}
   await page.evaluate(kind=>{
    const input=document.querySelector('[data-state="metricSearch"]');
-   if(kind==='select')document.querySelector('[data-run-page-size]').focus();
-   if(kind==='color')document.querySelector('.run-color').focus();
    if(kind==='selection'){const range=document.createRange();range.selectNodeContents(document.querySelector('.chart-title'));getSelection().removeAllRanges();getSelection().addRange(range);}
    if(kind==='composition'){input.focus();input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));}
   },kind);
@@ -165,7 +163,6 @@ try{
   assert.equal(await page.evaluate(()=>window.replacements),before,`${kind} survives polling`);
   if(kind==='pointer')await page.mouse.up();
   await page.evaluate(kind=>{
-   if(kind==='select'||kind==='color')document.activeElement.blur();
    if(kind==='selection')getSelection().removeAllRanges();
    if(kind==='composition')document.activeElement.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
   },kind);
@@ -224,6 +221,170 @@ try{
  await runPage.locator('#detail-dialog [data-action="close-dialog"]').click();
  await runPage.waitForFunction(before=>window.replacements>before,beforeDialog);
  await runPage.close();
+ await _verifyRichCardArrival({open,poll,add,table});
+ await _verifyPendingVega({open,vega,settle});
+ await _verifyIdleControls({open,poll,settle});
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({scroll:['workspace','single-run','logs','mobile','nested-table-xy','legend','full-runs-table','mobile-return'],state:['disclosures','focus-caret','vega','media-playback','zoom','visibility','selection','sections','pagination'],interactions:['in-flight-menu','in-flight-dialog','pointer','native-select','color-picker','composition','text-selection','chart-inspection'],rendersPerRefresh:1,pageErrors:0}));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+
+/**
+ * Purpose: Preserve an existing card when a newer run adds a preceding card.
+ * Input: The browser fixture and the functions that add events and refresh.
+ * Output: Assertions for the original table, disclosure, and focused input.
+ */
+async function _verifyRichCardArrival({open, poll, add, table}) {
+    const {page} = await open('view=data');
+    try {
+        await page.locator('[data-vega-ready]').waitFor({state: 'attached'});
+        const card = page.locator('.rich-card').filter({
+            has: page.getByRole('button', {
+                name: 'Synthetic scroll run 0', exact: true,
+            }),
+        }).filter({
+            has: page.getByRole('heading', {name: 'outputs/table', exact: true}),
+        });
+        await card.locator('[data-table-search]').fill('Synthetic row');
+        const before = await card.evaluate(node => {
+            const table = node.querySelector('.logged-table');
+            table.querySelector('details').open = true;
+            table.scrollTop = 220;
+            table.scrollLeft = 180;
+            const input = node.querySelector('[data-table-search]');
+            input.focus({preventScroll: true});
+            input.setSelectionRange(1, 5, 'backward');
+            return [table.scrollTop, table.scrollLeft];
+        });
+        assert(before[0] > 0, 'The existing logged table must scroll vertically');
+        add(40, 'run_start', {name: 'Newer synthetic run', tags: ['synthetic-demo']});
+        add(40, 'history', {step: 0, metrics: {'outputs/table': table}});
+        await poll(page);
+        assert.deepEqual(await card.evaluate(node => {
+            const table = node.querySelector('.logged-table');
+            return [table.scrollTop, table.scrollLeft];
+        }), before);
+        assert(await card.locator('details').first().evaluate(node => node.open));
+        assert(await card.locator('[data-table-search]').evaluate(node =>
+            document.activeElement === node && node.selectionStart === 1 &&
+            node.selectionEnd === 5 && node.selectionDirection === 'backward'
+        ));
+        const newCard = page.locator('.rich-card').filter({
+            has: page.getByRole('button', {name: 'Newer synthetic run', exact: true}),
+        });
+        assert.equal(await newCard.locator('details[open]').count(), 0);
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Wait for the current Vega render before the final scroll restore.
+ * Input: A browser page with the real Vega runtime and a chart value.
+ * Output: Assertions for a rerender that starts before the prior render ends.
+ */
+async function _verifyPendingVega({open, vega, settle}) {
+    const {page} = await open();
+    try {
+        await page.evaluate(async value => {
+            const {hydrateVega} = await import('/vega-view.mjs');
+            const {replaceView} = await import('/media-view.mjs');
+            const {captureViewState, restoreViewState} =
+                await import('/view-state.mjs');
+            const root = document.createElement('div');
+            root.style.cssText = 'width:300px;height:160px;overflow:auto';
+            document.body.append(root);
+            const html = '<div data-vega-id="review-probe" ' +
+                'data-vega-key="review-probe"></div>';
+            root.innerHTML = html;
+            const registry = new Map([['review-probe', value]]);
+            const original = window.vega.View.prototype.runAsync;
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            window.vega.View.prototype.runAsync = function (...args) {
+                window.probeCalls++;
+                return gate.then(() => original.apply(this, args));
+            };
+            window.probeCalls = 0;
+            const first = hydrateVega(root, registry);
+            window.pendingVegaProbe = {
+                root, html, registry, first, release, original,
+                hydrateVega, replaceView, captureViewState, restoreViewState,
+            };
+        }, vega);
+        await page.waitForFunction(() => window.probeCalls === 1);
+        await page.evaluate(() => {
+            const probe = window.pendingVegaProbe;
+            const placeholder = document.createElement('div');
+            placeholder.style.height = '1000px';
+            probe.root.firstElementChild.append(placeholder);
+            probe.root.scrollTop = 240;
+            const snapshot = probe.captureViewState(probe.root);
+            probe.replaceView(probe.root, probe.html);
+            const restoreScroll = probe.restoreViewState(probe.root, snapshot);
+            window.latestProbeFinished = false;
+            probe.latest = probe.hydrateVega(probe.root, probe.registry).then(() => {
+                restoreScroll();
+                window.latestProbeFinished = true;
+            });
+        });
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.latestProbeFinished), false,
+            'The latest render must not finish before its pending chart');
+        const result = await page.evaluate(async () => {
+            const probe = window.pendingVegaProbe;
+            try {
+                probe.release();
+                await Promise.all([probe.first, probe.latest]);
+                return {
+                    ready: probe.root.firstElementChild.dataset.vegaReady,
+                    top: probe.root.scrollTop,
+                };
+            } finally {
+                window.vega.View.prototype.runAsync = probe.original;
+                probe.root.remove();
+            }
+        });
+        assert.equal(result.ready, 'true');
+        assert.equal(result.top, 240);
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Apply live data after a control interaction without a required blur.
+ * Input: The browser fixture and the function that invokes the real refresh.
+ * Output: Assertions for idle focus and an actual open native select picker.
+ */
+async function _verifyIdleControls({open, poll, settle}) {
+    const {page} = await open();
+    try {
+        for (const selector of [
+            '[data-run-page-size]', '.run-color',
+            '[data-vega-ready] input[type="range"]',
+        ]) {
+            const control = page.locator(selector).first();
+            await control.focus();
+            await poll(page);
+            assert(await control.evaluate(node => document.activeElement === node));
+            await poll(page);
+            assert(await control.evaluate(node => document.activeElement === node));
+        }
+        const select = page.locator('[data-run-page-size]');
+        await select.click();
+        assert(await select.evaluate(node => node.matches(':open')));
+        const before = await page.evaluate(() => window.replacements);
+        await page.evaluate(() => window.poll());
+        await page.waitForFunction(() =>
+            !document.querySelector('[data-action="refresh"]').disabled
+        );
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.replacements), before);
+        await select.selectOption('50');
+        await page.waitForFunction(before => window.replacements > before, before);
+        assert(await select.evaluate(node => document.activeElement === node));
+        await poll(page);
+    } finally {
+        await page.close();
+    }
+}
