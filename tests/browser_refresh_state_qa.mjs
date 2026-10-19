@@ -224,6 +224,9 @@ try{
  await _verifyRichCardArrival({open,poll,add,table});
  await _verifyPendingVega({open,vega,settle});
  await _verifyIdleControls({open,poll,settle});
+ await _verifyPickerCompletion({open,settle});
+ await _verifyPendingPlotly({open,settle});
+ await _verifyVegaResize({open,vega});
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({scroll:['workspace','single-run','logs','mobile','nested-table-xy','legend','full-runs-table','mobile-return'],state:['disclosures','focus-caret','vega','media-playback','zoom','visibility','selection','sections','pagination'],interactions:['in-flight-menu','in-flight-dialog','pointer','native-select','color-picker','composition','text-selection','chart-inspection'],rendersPerRefresh:1,pageErrors:0}));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
@@ -384,6 +387,206 @@ async function _verifyIdleControls({open, poll, settle}) {
         await page.waitForFunction(before => window.replacements > before, before);
         assert(await select.evaluate(node => document.activeElement === node));
         await poll(page);
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: End native picker pointer ownership before a refresh is requested.
+ * Input: A browser page with real native controls and the refresh renderer.
+ * Output: Assertions for a select choice and a color picker cancel event.
+ */
+async function _verifyPickerCompletion({open, settle}) {
+    const {page} = await open();
+    try {
+        await page.evaluate(async () => {
+            const {createRefreshRenderer} = await import('/view-state.mjs');
+            const root = document.createElement('div');
+            root.id = 'picker-probe';
+            root.innerHTML = '<select><option>A</option><option>B</option>' +
+                '</select><input type="color">';
+            document.body.append(root);
+            window.pickerProbe = {
+                root, renders: 0,
+                renderer: createRefreshRenderer(root, () => {
+                    window.pickerProbe.renders++;
+                }),
+            };
+        });
+        const select = page.locator('#picker-probe select');
+        await select.click();
+        assert(await select.evaluate(node => node.matches(':open')));
+        await select.selectOption('B');
+        // Headless Chromium keeps its popup open after selectOption.
+        // End that popup without a document pointerup or a window blur.
+        await select.evaluate(node => node.blur());
+        assert.equal(await select.evaluate(node => node.matches(':open')), false);
+        await page.evaluate(() => window.pickerProbe.renderer.request());
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.pickerProbe.renders), 1,
+            'A completed picker must not block the next refresh');
+        await page.evaluate(() => {
+            const probe = window.pickerProbe;
+            const select = probe.root.querySelector('select');
+            select.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+            select.dispatchEvent(new Event('change', {bubbles: true}));
+            probe.renderer.request();
+        });
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.pickerProbe.renders), 2,
+            'A changed picker must clear a consumed pointerup');
+        await page.evaluate(() => {
+            const probe = window.pickerProbe;
+            const color = probe.root.querySelector('input');
+            color.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+            color.dispatchEvent(new Event('cancel', {bubbles: true}));
+            probe.renderer.request();
+        });
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.pickerProbe.renders), 3,
+            'A cancelled picker must clear a consumed pointerup');
+    } finally {
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Wait for a replacement Plotly mount before the final scroll restore.
+ * Input: A browser page with a delayed request for the real Plotly library.
+ * Output: Assertions for concurrent hydration, readiness, and saved scroll.
+ */
+async function _verifyPendingPlotly({open, settle}) {
+    const {page} = await open();
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    await page.route('**/plotly-strict-4.1.1.min.js', async route => {
+        await gate;
+        await route.continue();
+    });
+    try {
+        await page.evaluate(async () => {
+            const {hydratePlotly} = await import('/plotly-view.mjs');
+            const {replaceView} = await import('/media-view.mjs');
+            const {captureViewState, restoreViewState} =
+                await import('/view-state.mjs');
+            const root = document.createElement('div');
+            root.style.cssText = 'width:300px;height:160px;overflow:auto';
+            document.body.append(root);
+            const html = '<div data-plotly-id="pending-plotly" ' +
+                'data-plotly-key="pending-plotly"></div>';
+            root.innerHTML = html;
+            const registry = new Map([['pending-plotly', {
+                id: 'pending-plotly',
+                spec: {
+                    data: [{type: 'scatter', x: [0, 1], y: [1, 2]}],
+                    layout: {height: 700},
+                },
+            }]]);
+            const first = hydratePlotly(root, registry);
+            window.pendingPlotlyProbe = {
+                root, html, registry, first, hydratePlotly, replaceView,
+                captureViewState, restoreViewState,
+            };
+        });
+        await page.waitForFunction(() => document.querySelector(
+            'script[src*="plotly-strict-4.1.1.min.js"]'
+        ));
+        await page.evaluate(() => {
+            const probe = window.pendingPlotlyProbe;
+            probe.root.firstElementChild.style.height = '1000px';
+            probe.root.scrollTop = 240;
+            const snapshot = probe.captureViewState(probe.root);
+            probe.replaceView(probe.root, probe.html);
+            const restoreScroll = probe.restoreViewState(probe.root, snapshot);
+            window.latestPlotlyFinished = false;
+            probe.latest = Promise.resolve(probe.hydratePlotly(
+                probe.root, probe.registry
+            )).then(() => {
+                restoreScroll();
+                window.latestPlotlyFinished = true;
+            });
+            window.secondPlotlyFinished = false;
+            probe.second = Promise.resolve(probe.hydratePlotly(
+                probe.root, probe.registry
+            )).then(() => { window.secondPlotlyFinished = true; });
+        });
+        await settle(page);
+        assert.equal(await page.evaluate(() => window.latestPlotlyFinished), false,
+            'The latest render must wait for the replacement Plotly mount');
+        assert.equal(await page.evaluate(() => window.secondPlotlyFinished), false,
+            'Another caller must await the same pending mount');
+        release();
+        const result = await page.evaluate(async () => {
+            const probe = window.pendingPlotlyProbe;
+            await Promise.all([probe.first, probe.latest, probe.second]);
+            return {
+                ready: probe.root.firstElementChild.dataset.plotlyReady,
+                top: probe.root.scrollTop,
+            };
+        });
+        assert.equal(result.ready, 'true');
+        assert.equal(result.top, 240);
+    } finally {
+        release();
+        await page.close();
+    }
+}
+
+/**
+ * Purpose: Resize a retained container-sized Vega chart after a layout change.
+ * Input: A browser page and a chart with a bound inspection control.
+ * Output: Assertions for chart dimensions, node identity, and control state.
+ */
+async function _verifyVegaResize({open, vega}) {
+    const {page} = await open();
+    try {
+        const result = await page.evaluate(async value => {
+            const {hydrateVega} = await import('/vega-view.mjs');
+            const {replaceView} = await import('/media-view.mjs');
+            const root = document.createElement('div');
+            root.style.width = '300px';
+            document.body.append(root);
+            const html = '<div data-vega-id="responsive-vega" ' +
+                'data-vega-key="responsive-vega"></div>';
+            const registry = new Map([['responsive-vega', {
+                table: value.table,
+                spec: {
+                    width: 'container', height: 180, mark: 'point',
+                    params: [{name: 'inspection', value: 0,
+                        bind: {input: 'range', min: 0, max: 10}}],
+                    encoding: {
+                        x: {field: 'x', type: 'quantitative'},
+                        y: {field: 'y', type: 'quantitative'},
+                    },
+                },
+            }]]);
+            root.innerHTML = html;
+            await hydrateVega(root, registry);
+            const node = root.firstElementChild;
+            const input = node.querySelector('input');
+            input.value = '7';
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+            const before = node.querySelector('svg').getBoundingClientRect().width;
+            root.style.width = '600px';
+            replaceView(root, html);
+            await hydrateVega(root, registry);
+            const after = node.querySelector('svg').getBoundingClientRect().width;
+            const same = root.firstElementChild === node;
+            const control = root.querySelector('input').value;
+            root.style.width = '240px';
+            replaceView(root, html);
+            await hydrateVega(root, registry);
+            const narrow = node.querySelector('svg').getBoundingClientRect().width;
+            root.remove();
+            return {before, after, narrow, same, control};
+        }, vega);
+        assert(result.after > result.before + 200,
+            `A wider panel must resize its retained chart: ${JSON.stringify(result)}`);
+        assert(result.narrow < result.before,
+            'A narrower panel must resize its retained chart');
+        assert.equal(result.same, true);
+        assert.equal(result.control, '7');
     } finally {
         await page.close();
     }

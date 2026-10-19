@@ -99,7 +99,12 @@ export function createRefreshRenderer(root, render) {
   document.addEventListener('dragend', () => { dragging = false; pointer = false; schedule(); }, true);
   document.addEventListener('compositionstart', event => { if (root.contains(event.target)) composing = true; }, true);
   document.addEventListener('compositionend', () => { composing = false; schedule(); }, true);
-  for (const type of ['close','toggle','focusout','change','cancel','click','keydown','keyup','selectionchange']) document.addEventListener(type, schedule, true);
+  for (const type of ['change','cancel']) document.addEventListener(type, event => {
+    // The picker can consume pointerup before any refresh becomes pending.
+    if (root.contains(event.target) && event.target.matches('select,input[type="color"]')) pointer = false;
+    schedule();
+  }, true);
+  for (const type of ['close','toggle','focusout','click','keydown','keyup','selectionchange']) document.addEventListener(type, schedule, true);
   window.addEventListener('blur', () => { pointer = false; dragging = false; composing = false; schedule(); });
   return {request:() => { pending = true; flush(); }, cancel:() => { pending = false; clearTimeout(timer); }};
 }

@@ -1424,8 +1424,8 @@
     },
     {
       "path": "tests/browser_refresh_state_qa.mjs",
-      "bytes": 25777,
-      "sha256": "7906729b64c33826f2fd688b8622c79cf4899262c83e49778ff00e60cbb515b0"
+      "bytes": 34989,
+      "sha256": "9f419e3f35a2c8f1a4fee6171b4df3b1d752f3337a45b44d6b6ecfc6501c2abd"
     },
     {
       "path": "tests/browser_request_recovery.mjs",
@@ -3594,8 +3594,8 @@
     },
     {
       "path": "web/plotly-view.mjs",
-      "bytes": 38890,
-      "sha256": "89458923d74c92423e976222f2ae966257ef40451c4b1c3691ad9dfa09090151"
+      "bytes": 39465,
+      "sha256": "94a2a8d3e838dd32c1624b6bccb4bfa736b14ac8bba1922222312eb5637a80f5"
     },
     {
       "path": "web/project-pages.mjs",
@@ -3734,13 +3734,13 @@
     },
     {
       "path": "web/vega-view.mjs",
-      "bytes": 3824,
-      "sha256": "d4f76c08bd759378335496273c7a7414777b0ad7b387bd08d5cfb1ddfd159252"
+      "bytes": 4476,
+      "sha256": "983f9cf0e381949b9dbcfa4aae856967d6302e66ac051088c5d63c823055a4e2"
     },
     {
       "path": "web/view-state.mjs",
-      "bytes": 5630,
-      "sha256": "3e424ec5030693ee0bca0c96edbb6cf60aefabbd0ec932cbe6f2a0d1f9fb9253"
+      "bytes": 5909,
+      "sha256": "d0e5e435e2d75e648ad7d58b7328fa643466360b7de5a0af26f30e84c81ff5b0"
     },
     {
       "path": "web/workspace-layout.mjs",
