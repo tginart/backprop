@@ -87,8 +87,62 @@ try{
   await card.locator('[data-expand]').click();
   const expanded=page.locator('#chart-dialog [data-metric="train/loss"]');
   assert.equal(await expanded.locator('[data-panel-smoothing]').inputValue(),'0.85');
+  for (const viewport of [
+    {width:1440,height:900}, {width:2560,height:1440},
+    {width:1440,height:500}, {width:390,height:844}, {width:844,height:390},
+  ]) {
+    await page.setViewportSize(viewport);
+    await _assertExpandedLayout(page, viewport);
+    const hover = await expanded.locator('.chart-svg').evaluate(svg => {
+      const rect = svg.querySelector('clipPath rect');
+      const point = new DOMPoint(
+        rect.x.baseVal.value + rect.width.baseVal.value / 4,
+        rect.y.baseVal.value + rect.height.baseVal.value / 2,
+      ).matrixTransform(svg.getScreenCTM());
+      return {x:point.x,y:point.y};
+    });
+    await page.mouse.move(hover.x, hover.y);
+    const crosshair = await expanded.locator('.crosshair').boundingBox();
+    assert(Math.abs(crosshair.x - hover.x) < 1, 'hover follows the resized plot');
+    assert.equal(await expanded.locator('.tooltip-title').textContent(), 'Step 35');
+    await page.mouse.move(1, 1);
+    if (viewport.width === 1440 && viewport.height === 900) {
+      await page.screenshot({path:'/tmp/backprop-expanded-desktop.png'});
+    }
+    if (viewport.width === 390) {
+      await page.screenshot({path:'/tmp/backprop-expanded-mobile.png'});
+    }
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await _assertExpandedLayout(page, {width:1440,height:900});
+  const expandedSvg = expanded.locator('.chart-svg');
+  const drag = await expandedSvg.evaluate(svg => {
+    const rect = svg.querySelector('clipPath rect');
+    return [.19, .81].map(fraction => {
+      const point = new DOMPoint(
+        rect.x.baseVal.value + rect.width.baseVal.value * fraction,
+        rect.y.baseVal.value + rect.height.baseVal.value / 2,
+      ).matrixTransform(svg.getScreenCTM());
+      return {x:point.x,y:point.y};
+    });
+  });
+  await page.mouse.move(drag[0].x,drag[0].y);await page.mouse.down();
+  await page.mouse.move(drag[1].x,drag[1].y);await page.mouse.up();
+  await expandedSvg.focus();await page.keyboard.press('Home');
+  assert.equal(await expanded.locator('.tooltip-title').textContent(),'Step 32');
+  await page.keyboard.press('End');
+  assert.equal(await expanded.locator('.tooltip-title').textContent(),'Step 68');
+  await page.keyboard.press('0');
+  await expandedSvg.focus();await page.keyboard.press('Home');
+  assert.equal(await expanded.locator('.tooltip-title').textContent(),'Step 0');
+  await page.mouse.move(1, 1);
+
   await expanded.locator('[data-panel-smoothing]').evaluate(node=>{node.value='.65';node.dispatchEvent(new Event('input',{bubbles:true}));node.dispatchEvent(new Event('change',{bubbles:true}));});
   assert.equal(await slider.inputValue(),'0.65','compact and expanded copies agree');
+  await page.getByRole('button',{name:'Close expanded chart',exact:true}).click();
+  await card.locator('[data-expand]').click();
+  await _assertExpandedLayout(page, {width:1440,height:900});
+  assert.equal(await expanded.locator('[data-panel-smoothing]').inputValue(),'0.65');
   await page.getByRole('button',{name:'Close expanded chart',exact:true}).click();
   await page.reload();await slider.waitFor();
   assert.equal(await slider.inputValue(),'0.65');assert.equal(await card.locator('.chart-raw-line').count(),1);
@@ -107,4 +161,38 @@ try{
   console.log('PASS: live slider, pointer capture, keyboard, faint raw data, isolation, zoom, expansion, persistence and mobile layout; no browser errors');
 }finally{
   await browser?.close();await new Promise(resolve=>server.close(resolve));
+}
+
+/**
+ * Purpose: Check that the data fills the expanded plot after a viewport change.
+ * Input: The browser page and its viewport size.
+ * Output: An assertion fails if the plot has unused space or distorted labels.
+ */
+async function _assertExpandedLayout(page, viewport) {
+    await page.waitForFunction(() => {
+        const svg = document.querySelector('#chart-dialog .chart-svg');
+        return svg.viewBox.baseVal.width === svg.clientWidth &&
+            svg.viewBox.baseVal.height === svg.clientHeight;
+    });
+    const geometry = await page.locator('#chart-dialog').evaluate(dialog => {
+        const svg = dialog.querySelector('.chart-svg');
+        const rect = svg.querySelector('clipPath rect');
+        const transform = svg.getScreenCTM();
+        const bounds = dialog.getBoundingClientRect();
+        return {
+            x:bounds.x, y:bounds.y, right:bounds.right, bottom:bounds.bottom,
+            width:svg.clientWidth, height:svg.clientHeight,
+            dataWidth:rect.width.baseVal.value * transform.a,
+            dataHeight:rect.height.baseVal.value * transform.d,
+            labelSize:parseFloat(getComputedStyle(svg.querySelector('.axis text')).fontSize) * transform.a,
+            overflow:dialog.scrollWidth > dialog.clientWidth,
+        };
+    });
+    assert(geometry.x >= 0 && geometry.y >= 0);
+    assert(geometry.right <= viewport.width && geometry.bottom <= viewport.height);
+    assert(!geometry.overflow, 'expanded chart fits the viewport width');
+    assert(geometry.dataWidth >= geometry.width - 110, 'data fills the plot width');
+    assert(geometry.dataHeight >= geometry.height - 80, 'data fills the plot height');
+    assert(geometry.dataHeight >= 100, 'short windows keep a useful plot height');
+    assert(geometry.labelSize >= 11 && geometry.labelSize <= 14, 'labels keep a readable size');
 }

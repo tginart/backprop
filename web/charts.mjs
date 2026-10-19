@@ -13,8 +13,10 @@ const W = 600, H = 250, L = 76, R = 18, T = 18, B = 32;
 // the original plot geometry used by existing pointer and keyboard inspection.
 const plotLeft = spec => L + (spec.yLabel ? 24 : 0);
 const bottomMargin = spec => B + (spec.xLabel ? 16 : 0);
-const plotWidth = spec => W - plotLeft(spec) - R;
-const plotHeight = spec => H - T - bottomMargin(spec);
+const _chartWidth = spec => spec.viewportWidth ?? W;
+const _chartHeight = spec => spec.viewportHeight ?? H;
+const plotWidth = spec => _chartWidth(spec) - plotLeft(spec) - R;
+const plotHeight = spec => _chartHeight(spec) - T - bottomMargin(spec);
 /** Choose enough precision to distinguish every recorded tick in a domain.
  * Main callers: renderChart for numeric X/Y axes. A fixed two-digit label can
  * make distinct accuracy values or a zoomed range look identical.
@@ -167,7 +169,7 @@ export function renderChart(spec, id = 'chart') {
   const yLabels = axisTickLabels(yValues.map(value => spec.logScale ? 10 ** value : value));
   const grid = yValues.map((value, i) => {
     const y = T + i / 4 * height;
-    return `<line x1="${left}" y1="${y}" x2="${W - R}" y2="${y}" class="grid-line"/><text data-tick="${i}" x="${left - 11}" y="${y + 4}" text-anchor="end">${e(yLabels[i])}</text>`;
+    return `<line x1="${left}" y1="${y}" x2="${_chartWidth(spec) - R}" y2="${y}" class="grid-line"/><text data-tick="${i}" x="${left - 11}" y="${y + 4}" text-anchor="end">${e(yLabels[i])}</text>`;
   }).join('');
   const categoryTicks = spec.categories?.map((label, value) => ({ label, value })).filter(item => item.value >= spec.xMin && item.value <= spec.xMax);
   const tickValues = categoryTicks ? categoryTicks.filter((_, index) => categoryTicks.length <= 5 || index % Math.ceil((categoryTicks.length - 1) / 4) === 0 || index === categoryTicks.length - 1)
@@ -175,26 +177,26 @@ export function renderChart(spec, id = 'chart') {
   const xLabels = axisTickLabels(tickValues.map(item => item.value));
   const ticks = tickValues.map(({ value, label }, i) => {
     label ??= spec.timeAxis ? new Date(value * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : xLabels[i];
-    return `<text data-tick="${Math.round(i * 4 / Math.max(1, tickValues.length - 1))}" x="${sx(value, spec)}" y="${spec.xLabel ? H - bottom + 17 : H - 9}" text-anchor="middle">${e(String(label).slice(0, 18))}</text>`;
+    return `<text data-tick="${Math.round(i * 4 / Math.max(1, tickValues.length - 1))}" x="${sx(value, spec)}" y="${spec.xLabel ? _chartHeight(spec) - bottom + 17 : _chartHeight(spec) - 9}" text-anchor="middle">${e(String(label).slice(0, 18))}</text>`;
   }).join('');
   const labelText = (label, limit) => { const text = String(label); return e(text.length > limit ? text.slice(0, limit - 1) + '…' : text); };
-  const axisTitles = `${spec.xLabel ? `<text class="chart-axis-label x-axis-label" x="${left + width / 2}" y="${H - 5}" text-anchor="middle" style="font-size:13px"><title>${e(spec.xLabel)}</title>${labelText(spec.xLabel, 60)}</text>` : ''}${spec.yLabel ? `<text class="chart-axis-label y-axis-label" transform="translate(17 ${T + height / 2}) rotate(-90)" text-anchor="middle" style="font-size:13px"><title>${e(spec.yLabel)}</title>${labelText(spec.yLabel, 24)}</text>` : ''}`;
+  const axisTitles = `${spec.xLabel ? `<text class="chart-axis-label x-axis-label" x="${left + width / 2}" y="${_chartHeight(spec) - 5}" text-anchor="middle" style="font-size:13px"><title>${e(spec.xLabel)}</title>${labelText(spec.xLabel, Math.min(60, Math.floor(width / 7)))}</text>` : ''}${spec.yLabel ? `<text class="chart-axis-label y-axis-label" transform="translate(17 ${T + height / 2}) rotate(-90)" text-anchor="middle" style="font-size:13px"><title>${e(spec.yLabel)}</title>${labelText(spec.yLabel, 24)}</text>` : ''}`;
   const shapes = spec.series.map(series => {
     const points = series.points;
     const errors = errorBars(points, series, spec);
     if (series.kind === 'none') return errors;
     if (spec.kind === 'bar') return points.map((p, index) => {
       const barWidth = p.width ? p.width / (spec.xMax - spec.xMin) * width : Math.max(2, width / Math.max(points.length, 1) * 0.7);
-      const y = sy(p.y, spec), zero = Math.min(H - bottom, sy(spec.logScale ? 10 ** spec.yMin : 0, spec));
+      const y = sy(p.y, spec), zero = Math.min(_chartHeight(spec) - bottom, sy(spec.logScale ? 10 ** spec.yMin : 0, spec));
       return `<rect x="${sx(p.x + (p.offset || 0), spec) - barWidth / 2}" y="${Math.min(y, zero)}" width="${barWidth}" height="${Math.max(1, Math.abs(zero - y))}" fill="${series.color}" opacity=".72" rx="1"/>`;
     }).join('') + errors;
     const markers = (series.markers || (series.kind || spec.kind) === 'scatter') ? decimate(points, 1000).map(p => `<circle cx="${sx(p.x, spec)}" cy="${sy(p.y, spec)}" r="${(series.markerSize || 6) / 2}" fill="${series.color}" opacity=".72"/>`).join('') : '';
     if ((series.kind || spec.kind) === 'scatter') return markers + errors;
     const raw = spec.smoothing && spec.showRaw !== false ? `<path class="chart-raw-line" d="${path(points, spec, true)}" stroke="${series.color}" stroke-width="1" opacity=".17"/>` : '';
-    const fill = spec.kind === 'area' && points.length ? `<path d="${path(points, spec)} L${sx(points.at(-1).x, spec)},${H - bottom} L${sx(points[0].x, spec)},${H - bottom} Z" fill="${series.color}" opacity=".12" stroke="none"/>` : '';
+    const fill = spec.kind === 'area' && points.length ? `<path d="${path(points, spec)} L${sx(points.at(-1).x, spec)},${_chartHeight(spec) - bottom} L${sx(points[0].x, spec)},${_chartHeight(spec) - bottom} Z" fill="${series.color}" opacity=".12" stroke="none"/>` : '';
     return `${variationBand(points,series,spec)}${fill}${raw}<path class="chart-line" d="${path(points, spec)}" stroke="${series.color}" stroke-width="1.8" ${series.dashed ? 'stroke-dasharray="5 3"' : ''}/>${markers}${errors}${points.length === 1 && !markers ? `<circle cx="${sx(points[0].x, spec)}" cy="${sy(points[0].y, spec)}" r="3" fill="${series.color}"/>` : ''}`;
   }).join('');
-  return `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${e(spec.title || 'Metric plot')}.${spec.xLabel ? ` X axis: ${e(spec.xLabel)}.` : ''}${spec.yLabel ? ` Y axis: ${e(spec.yLabel)}.` : ''} Arrow keys inspect points. Drag to zoom, double click or press zero to reset."><defs><clipPath id="clip-${e(id)}"><rect x="${left}" y="${T}" width="${width}" height="${height}"/></clipPath></defs><g class="axis">${grid}${ticks}${axisTitles}</g><g clip-path="url(#clip-${e(id)})" fill="none" stroke-linejoin="round" stroke-linecap="round">${shapes}<rect class="zoom-selection" y="${T}" height="${height}" fill="#8abbff" opacity=".13" visibility="hidden"/><line class="crosshair" y1="${T}" y2="${H - bottom}" stroke="#839089" stroke-dasharray="3 3" visibility="hidden"/><g class="inspection-points" pointer-events="none"></g></g></svg><div class="chart-tooltip" role="status" popover="manual" tabindex="0" hidden></div>`;
+  return `<svg class="chart-svg" viewBox="0 0 ${_chartWidth(spec)} ${_chartHeight(spec)}" role="img" tabindex="0" aria-label="${e(spec.title || 'Metric plot')}.${spec.xLabel ? ` X axis: ${e(spec.xLabel)}.` : ''}${spec.yLabel ? ` Y axis: ${e(spec.yLabel)}.` : ''} Arrow keys inspect points. Drag to zoom, double click or press zero to reset."><defs><clipPath id="clip-${e(id)}"><rect x="${left}" y="${T}" width="${width}" height="${height}"/></clipPath></defs><g class="axis">${grid}${ticks}${axisTitles}</g><g clip-path="url(#clip-${e(id)})" fill="none" stroke-linejoin="round" stroke-linecap="round">${shapes}<rect class="zoom-selection" y="${T}" height="${height}" fill="#8abbff" opacity=".13" visibility="hidden"/><line class="crosshair" y1="${T}" y2="${_chartHeight(spec) - bottom}" stroke="#839089" stroke-dasharray="3 3" visibility="hidden"/><g class="inspection-points" pointer-events="none"></g></g></svg><div class="chart-tooltip" role="status" popover="manual" tabindex="0" hidden></div>`;
 }
 
 /** Render hover values with an explicit count and reachable additional series.
@@ -263,7 +265,7 @@ export function bindChart(element, spec, onZoom) {
   // panels can leave margins around the viewBox, so rectangle ratios are wrong.
   const plotPosition = event => {
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse());
-    return { x: Math.max(left, Math.min(W - R, point.x)), y: Math.max(T, Math.min(H - bottom, point.y)) };
+    return { x: Math.max(left, Math.min(_chartWidth(spec) - R, point.x)), y: Math.max(T, Math.min(_chartHeight(spec) - bottom, point.y)) };
   };
   const value = x => xValue((x - left) / width, spec);
   const orderedSeries = spec.series.map(series => ({ ...series, interpolate:series.points.every((point,i)=>!i || point.x>=series.points[i-1].x), points: series.points.slice().sort((a,b) => a.x-b.x) }));

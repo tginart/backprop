@@ -1379,8 +1379,8 @@
     },
     {
       "path": "tests/browser_chart_smoothing_qa.mjs",
-      "bytes": 8577,
-      "sha256": "a81a80a55f8a760b82b75994ce76da33770b0ca47d793ffb39b5d026510f8187"
+      "bytes": 13091,
+      "sha256": "285705fceda74a446f3b4c7fc9284748b6f40cbc80de792063cf1437ebc28c38"
     },
     {
       "path": "tests/browser_chart_tooltip_qa.mjs",
@@ -3394,8 +3394,8 @@
     },
     {
       "path": "web/app.mjs",
-      "bytes": 158721,
-      "sha256": "d0046688f91f67e2ea739d6a8a3726660d9a46b4abf4f64c53c64561a49b70df"
+      "bytes": 160309,
+      "sha256": "6e201f301e13aa97450298e5e425df7626a871d20c2d69239786297e76036600"
     },
     {
       "path": "web/artifact-collections.mjs",
@@ -3434,8 +3434,8 @@
     },
     {
       "path": "web/charts.mjs",
-      "bytes": 25738,
-      "sha256": "4f772f78e4033255659afe775ca6c3b4596d516f00bee0d17fe1f98ad1700e9f"
+      "bytes": 26113,
+      "sha256": "e56f68a42e785e6e39a64f2da842695083d57493d45e84fcfb7be0d56b4b1597"
     },
     {
       "path": "web/console-view.mjs",
@@ -3759,8 +3759,8 @@
     },
     {
       "path": "web/workspace.css",
-      "bytes": 51907,
-      "sha256": "dc48a8e6c562c8689630822eabe60b5ebed3655ca51283cd46c01fb9d34f9ede"
+      "bytes": 52219,
+      "sha256": "51ae131d172b15427f5dec1fc8fe6126c40f5fd248382f4921fad3b95c5c6395"
     },
     {
       "path": "web/workspace.mjs",
