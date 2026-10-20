@@ -1,5 +1,18 @@
 # Release notes
 
+## 0.1.1
+
+Browser workspace improvements from three merged pull requests:
+
+- Preserve scroll, filters, chart controls and expanded views across Foundry refreshes
+  ([#1](https://github.com/tginart/backprop/pull/1)).
+- Add live scalar-chart smoothing, raw-data overlays and magnetic point inspection
+  ([#2](https://github.com/tginart/backprop/pull/2)).
+- Make expanded charts fill the available viewport and retain focus across redraws
+  ([#3](https://github.com/tginart/backprop/pull/3)).
+
+The Python API and event format remain unchanged from 0.1.0.
+
 ## 0.1.0
 
 Initial public release of Backprop: experiment tracking on Palantir Foundry with a

@@ -971,7 +971,7 @@ async function hydrateMedia(root) {
 }
 
 function renderSetup() {
-  const install = "python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.0'";
+  const install = "python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'";
   const project = chosenProject()?.name || 'my-project';
   const code = `import backprop as wandb\n\nwith wandb.init(project=${JSON.stringify(project)},\n                config={"learning_rate": 3e-4}) as run:\n    for step in range(100):\n        run.log({"train/loss": 1 / (step + 1)}, step=step)`;
   const env = 'export BACKPROP_CONFIG="/path/to/backprop-config.json"\nexport FOUNDRY_TOKEN="<your Foundry token>"';

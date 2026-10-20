@@ -35,12 +35,12 @@
     {
       "path": "README.md",
       "bytes": 13343,
-      "sha256": "6c7515b40322769ff28b195602f728fe0b0c1f5fa8e486584826d9cc2b9b5ac5"
+      "sha256": "375496d908e4bf5cd8848d79afb9c64080b1318bea15551be19507d458f0fecf"
     },
     {
       "path": "RELEASE_NOTES.md",
-      "bytes": 1443,
-      "sha256": "cfa672b88306003501bc9edaf2ce6783b5b80007db0be75af1334c4cb9588e88"
+      "bytes": 1996,
+      "sha256": "f9a73dd6c179aafa6ae2880ce756342a5b7fb3a718c68f9d19a0778e02945ba4"
     },
     {
       "path": "SECURITY.md",
@@ -130,7 +130,7 @@
     {
       "path": "docs/README.md",
       "bytes": 1822,
-      "sha256": "1bc619da8a8d1a2dd68556d2d885990ea1d707007618d485aff3597c6d8ce09f"
+      "sha256": "d69051f3d34a18e20b019dc9acd33c30c31dd2580de9b1ad3d9cd3d6f94b2957"
     },
     {
       "path": "docs/compatibility.md",
@@ -155,17 +155,17 @@
     {
       "path": "docs/interface.md",
       "bytes": 3822,
-      "sha256": "d3a69ee81d986b511eccaa415ef3d277bd052b405ba6f666b5365788405880d3"
+      "sha256": "26fe693569b44a9d6df106f5d40c38d386a07b65481a1baf9961a50613c06bb1"
     },
     {
       "path": "docs/python-api-support.md",
       "bytes": 33874,
-      "sha256": "c80c16a89d0f382f5519e5231db0591f338f47e5bfee3d8370db042967ca9d70"
+      "sha256": "7491b71885486b670d280dc7f33c07d28f6f88265db02792484fa0568b93200c"
     },
     {
       "path": "docs/updates.md",
       "bytes": 2258,
-      "sha256": "ee16c4fbb91b4ab58591927f34b16c8cd54d67201b0373f86cfb3bb7e88f693d"
+      "sha256": "ca44fe187df79e4fe2ba5fdf311f7513f64d52acc1de4194e1f0f9f541e91943"
     },
     {
       "path": "examples/README.md",
@@ -230,12 +230,12 @@
     {
       "path": "pyproject.toml",
       "bytes": 1966,
-      "sha256": "543549f578bb05d43931a8be706d2431f92f30d93d4e0e780273d8d7ac1ea491"
+      "sha256": "ffe9158b0e96c2d6784e232f66805f3eeaaf8300f7bd6149831da5ee1782140b"
     },
     {
       "path": "sdk/backprop/__init__.py",
       "bytes": 21156,
-      "sha256": "52fa32ad8f28b8500461d4c0b75f02144186b09c39f6244062bd1fdd9cba8071"
+      "sha256": "75bce397f164f0ad7c10424aca15e8c844571a62747e40f9c8f604142c451314"
     },
     {
       "path": "sdk/backprop/__main__.py",
@@ -3395,7 +3395,7 @@
     {
       "path": "web/app.mjs",
       "bytes": 160647,
-      "sha256": "b9f39ab38e109f53074474d50497417e255f2f2fbc16f0f278437a9730c3f6f5"
+      "sha256": "430d494b00ad49ff9ac5fa45367e8a9827644e7be7bdc08a3f32aefd41f7648c"
     },
     {
       "path": "web/artifact-collections.mjs",
