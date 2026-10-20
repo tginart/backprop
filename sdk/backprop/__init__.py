@@ -27,7 +27,7 @@ from .run_calls import run_function as _run_function
 from .run import Run, resolve_settings
 from .transport import BackpropError, MemorySink, load_config, native_store, sync
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 plot_table = plot.plot_table
 run = None
 _runs = []
