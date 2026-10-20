@@ -104,6 +104,7 @@ state.activeViews = new Map(preferences.activeViews || []);
 state.personalViews = new Map(preferences.personalViews || []);
 state.artifactSearch='';state.artifactSelection={};
 const chartRegistry = new Map();
+const expandedChartEntries = new WeakMap();
 const mediaRegistry = new Map();
 const plotlyRegistry = new Map();
 const richRegistry = new Map();
@@ -569,7 +570,8 @@ function metricPanel(metric, runs, override = null) {
 function renderMetricCard(metric, runs, expanded = false) {
   if(panelCatalog().get(metric)?.type==='run-comparer')return renderRunComparer({id:metric,title:panelTitle(metric),runs,settings:state.panelSettings.get(panelKey(state.project,metric)),placement:panelOptions(layout(),metric),columns:state.columns,expanded,icon,valueCell});
   if(panelCatalog().get(metric)?.type!=='line')return renderLoggedPanel(metric,runs,expanded);
-  const id = `metric-${chartRegistry.size}`, { all, series, options, spec, error } = metricPanel(metric, runs);
+  const id = `${expanded ? 'expanded-' : ''}metric-${chartRegistry.size}`;
+  const { all, series, options, spec, error } = metricPanel(metric, runs);
   chartRegistry.set(id, { spec, key: metric, metric, series });
   const total = series.reduce((sum, s) => sum + s.points.length, 0);
   const pinned = state.pinnedPanels.has(panelKey(state.project, metric)), custom = Object.keys(state.panelSettings.get(panelKey(state.project, metric)) || {}).length > 0;
@@ -586,10 +588,12 @@ function axisName(axis = state.xAxis) { return ({ _step: 'Step', _runtime: 'Rela
  */
 function bindCharts(root) {
     for (const element of root.querySelectorAll('[data-chart]')) {
-        const entry = chartRegistry.get(element.dataset.chart);
+        const entry = expandedChartEntries.get(element) ||
+            chartRegistry.get(element.dataset.chart);
         if (!entry) continue;
-        if (chartDialog.contains(element) && entry.spec) {
-            _fitExpandedChart(element, entry);
+        if (chartDialog.contains(element)) {
+            expandedChartEntries.set(element, entry);
+            if (entry.spec) _fitExpandedChart(element, entry);
         }
         bindChart(element, entry.spec, range => {
             range ? state.zoom.set(entry.key, range) : state.zoom.delete(entry.key);
@@ -602,15 +606,17 @@ function bindCharts(root) {
 }
 
 /**
- * Purpose: Draw an expanded plot at its available size without scale distortion.
+ * Purpose: Fit an expanded plot and keep keyboard focus on its replacement.
  * Input: The plot element and its chart registry entry.
  * Output: The entry and SVG use the same viewport for labels and interaction.
  */
 function _fitExpandedChart(element, entry) {
     const svg = element.querySelector('.chart-svg');
+    const hasFocus = svg === document.activeElement;
     const viewportWidth = svg.clientWidth, viewportHeight = svg.clientHeight;
     entry.spec = {...entry.spec, viewportWidth, viewportHeight};
     element.innerHTML = renderChart(entry.spec, element.dataset.chart);
+    if (hasFocus) element.querySelector('.chart-svg').focus({preventScroll:true});
 }
 
 /** Redraw only this metric while the slider keeps focus and pointer capture.
@@ -626,9 +632,10 @@ function updatePanelSmoothing(target) {
   const {all,series,spec} = metricPanel(metric,chartRuns());
   for (const card of document.querySelectorAll('.chart-card[data-metric]')) {
     if (card.dataset.metric !== metric) continue;
-    const plot = card.querySelector('[data-chart]'), entry = chartRegistry.get(plot?.dataset.chart);
+    const plot = card.querySelector('[data-chart]');
+    const entry = expandedChartEntries.get(plot) || chartRegistry.get(plot?.dataset.chart);
     if (!entry) continue;
-    chartRegistry.set(plot.dataset.chart,{...entry,spec,series});
+    Object.assign(entry, {spec, series});
     plot.innerHTML = renderChart(spec,plot.dataset.chart);
     bindCharts(card);
     const control = card.querySelector('[data-panel-smoothing]');

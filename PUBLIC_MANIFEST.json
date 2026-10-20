@@ -1379,8 +1379,8 @@
     },
     {
       "path": "tests/browser_chart_smoothing_qa.mjs",
-      "bytes": 13091,
-      "sha256": "285705fceda74a446f3b4c7fc9284748b6f40cbc80de792063cf1437ebc28c38"
+      "bytes": 13859,
+      "sha256": "f1e10bf28492ecd2547822abc5562f270ae3b91b12e159c95d071aa755437acf"
     },
     {
       "path": "tests/browser_chart_tooltip_qa.mjs",
@@ -3394,8 +3394,8 @@
     },
     {
       "path": "web/app.mjs",
-      "bytes": 160309,
-      "sha256": "6e201f301e13aa97450298e5e425df7626a871d20c2d69239786297e76036600"
+      "bytes": 160647,
+      "sha256": "b9f39ab38e109f53074474d50497417e255f2f2fbc16f0f278437a9730c3f6f5"
     },
     {
       "path": "web/artifact-collections.mjs",

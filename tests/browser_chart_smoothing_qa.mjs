@@ -87,12 +87,21 @@ try{
   await card.locator('[data-expand]').click();
   const expanded=page.locator('#chart-dialog [data-metric="train/loss"]');
   assert.equal(await expanded.locator('[data-panel-smoothing]').inputValue(),'0.85');
+  await page.evaluate(() => {
+    window.previousMain = document.querySelector('#app .main');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await page.waitForFunction(() =>
+    document.querySelector('#app .main') !== window.previousMain);
   for (const viewport of [
     {width:1440,height:900}, {width:2560,height:1440},
     {width:1440,height:500}, {width:390,height:844}, {width:844,height:390},
   ]) {
+    await expanded.locator('.chart-svg').focus();
     await page.setViewportSize(viewport);
     await _assertExpandedLayout(page, viewport);
+    assert(await expanded.locator('.chart-svg').evaluate(svg =>
+      svg === document.activeElement), 'resize retains keyboard focus');
     const hover = await expanded.locator('.chart-svg').evaluate(svg => {
       const rect = svg.querySelector('clipPath rect');
       const point = new DOMPoint(
@@ -105,6 +114,11 @@ try{
     const crosshair = await expanded.locator('.crosshair').boundingBox();
     assert(Math.abs(crosshair.x - hover.x) < 1, 'hover follows the resized plot');
     assert.equal(await expanded.locator('.tooltip-title').textContent(), 'Step 35');
+    await page.keyboard.press('Home');
+    const firstPoint = await expanded.locator('.tooltip-title').textContent();
+    await page.keyboard.press('ArrowRight');
+    assert.notEqual(await expanded.locator('.tooltip-title').textContent(), firstPoint,
+      'keyboard inspection works after resize');
     await page.mouse.move(1, 1);
     if (viewport.width === 1440 && viewport.height === 900) {
       await page.screenshot({path:'/tmp/backprop-expanded-desktop.png'});
@@ -173,7 +187,7 @@ async function _assertExpandedLayout(page, viewport) {
         const svg = document.querySelector('#chart-dialog .chart-svg');
         return svg.viewBox.baseVal.width === svg.clientWidth &&
             svg.viewBox.baseVal.height === svg.clientHeight;
-    });
+    }, null, {timeout:5000});
     const geometry = await page.locator('#chart-dialog').evaluate(dialog => {
         const svg = dialog.querySelector('.chart-svg');
         const rect = svg.querySelector('clipPath rect');
