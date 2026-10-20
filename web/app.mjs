@@ -68,6 +68,17 @@ const app = document.querySelector('#app');
 const hideControlTooltip = installTooltips();
 const detailDialog = document.querySelector('#detail-dialog');
 const chartDialog = document.querySelector('#chart-dialog');
+const expandedChartObserver = new ResizeObserver(entries => {
+  for (const {target} of entries) {
+    const svg = target.querySelector('.chart-svg');
+    if (!chartDialog.open || !svg) continue;
+    const viewport = svg.viewBox.baseVal;
+    if (viewport.width !== svg.clientWidth || viewport.height !== svg.clientHeight) {
+      bindCharts(chartDialog);
+    }
+  }
+});
+chartDialog.addEventListener('close', () => expandedChartObserver.disconnect());
 const panelDialog = document.querySelector('#panel-dialog');
 const inspectDialog = document.querySelector('#inspect-dialog');
 const tableDialog = document.querySelector('#table-dialog');
@@ -93,6 +104,7 @@ state.activeViews = new Map(preferences.activeViews || []);
 state.personalViews = new Map(preferences.personalViews || []);
 state.artifactSearch='';state.artifactSelection={};
 const chartRegistry = new Map();
+const expandedChartEntries = new WeakMap();
 const mediaRegistry = new Map();
 const plotlyRegistry = new Map();
 const richRegistry = new Map();
@@ -558,7 +570,8 @@ function metricPanel(metric, runs, override = null) {
 function renderMetricCard(metric, runs, expanded = false) {
   if(panelCatalog().get(metric)?.type==='run-comparer')return renderRunComparer({id:metric,title:panelTitle(metric),runs,settings:state.panelSettings.get(panelKey(state.project,metric)),placement:panelOptions(layout(),metric),columns:state.columns,expanded,icon,valueCell});
   if(panelCatalog().get(metric)?.type!=='line')return renderLoggedPanel(metric,runs,expanded);
-  const id = `metric-${chartRegistry.size}`, { all, series, options, spec, error } = metricPanel(metric, runs);
+  const id = `${expanded ? 'expanded-' : ''}metric-${chartRegistry.size}`;
+  const { all, series, options, spec, error } = metricPanel(metric, runs);
   chartRegistry.set(id, { spec, key: metric, metric, series });
   const total = series.reduce((sum, s) => sum + s.points.length, 0);
   const pinned = state.pinnedPanels.has(panelKey(state.project, metric)), custom = Object.keys(state.panelSettings.get(panelKey(state.project, metric)) || {}).length > 0;
@@ -568,7 +581,43 @@ function renderMetricCard(metric, runs, expanded = false) {
   return `<article class="chart-card arranged-panel" data-metric="${e(metric)}" style="--panel-span:${Math.min(state.columns,panelOptions(layout(),metric).span || 1)};--panel-height:${panelOptions(layout(),metric).height || 270}px"><div class="chart-header">${CUSTOM_WORKSPACES?`<button class="panel-drag" draggable="true" data-panel-drag="${e(metric)}" aria-label="Drag ${e(metric)} panel" title="Drag panel">⠿</button>`:''}<h3 class="chart-title" title="${e(options.title)}">${label}</h3><div class="chart-actions">${CUSTOM_WORKSPACES?`<button class="icon-btn ${custom ? 'active' : ''}" data-edit-panel="${e(metric)}" title="Edit panel" aria-label="Edit ${e(metric)} panel">${icon('settings')}</button>`:''}${state.zoom.has(metric) ? `<button class="icon-btn" data-reset-chart="${e(metric)}" title="Reset zoom" aria-label="Reset zoom">${icon('reset')}</button>` : ''}${expanded ? '' : `<button class="icon-btn" data-expand="${e(metric)}" title="Expand chart" aria-label="Expand ${e(metric)}">${icon('expand')}</button>`}<button class="icon-btn" data-panel-menu="${e(metric)}" aria-label="Actions for ${e(panelTitle(metric))} panel" aria-haspopup="menu">⋯</button></div></div><div class="chart-subtitle">${series.length} ${options.groupBy ? 'group' : options.sharedWriters ? 'writer stream' : 'run'}${series.length !== 1 ? 's' : ''}${options.secondMetric ? ' / metric pairs' : ''} · ${f(total)} points${options.availableRuns>options.shownRuns?` · first ${options.shownRuns} of ${options.availableRuns} matching runs`:''} ${state.zoom.has(metric) ? '<span class="zoom-note">· zoomed</span>' : ''}${options.logScale ? ' · positive values only' : ''}${options.mixedAxes?' · mixed declared axes':''}${custom ? ' · custom settings' : ''}</div>${legend}${smoothing}<div class="chart-plot" data-chart="${id}">${error?`<div class="chart-empty" role="status">${e(error)}</div>`:renderChart(spec, id)}</div><div class="chart-footer"><span>${e(options.xLabel)}</span><span>Hover or use arrow keys to inspect</span>${expanded || !CUSTOM_WORKSPACES ? "" : `<button class="panel-resizer" data-panel-resize="${e(metric)}" aria-label="Resize ${e(metric)} panel" title="Drag to resize; arrow keys resize">◢</button>`}</div></article>`;
 }
 function axisName(axis = state.xAxis) { return ({ _step: 'Step', _runtime: 'Relative time (s)', _timestamp: 'Wall time', defined: 'Defined step' })[axis] || axis; }
-function bindCharts(root) { for (const element of root.querySelectorAll('[data-chart]')) { const entry = chartRegistry.get(element.dataset.chart); if (entry) bindChart(element, entry.spec, range => { range ? state.zoom.set(entry.key, range) : state.zoom.delete(entry.key); if (chartDialog.open && entry.metric) expandChart(entry.metric); else if (root === detailDialog && detailDialog.open) openRun(detailDialog.dataset.run, state.dialogTab); else render(); }); } }
+/**
+ * Purpose: Attach chart controls and fit each expanded plot to its viewport.
+ * Input: The root that contains the chart elements.
+ * Output: Each chart uses its displayed coordinates for inspection and zoom.
+ */
+function bindCharts(root) {
+    for (const element of root.querySelectorAll('[data-chart]')) {
+        const entry = expandedChartEntries.get(element) ||
+            chartRegistry.get(element.dataset.chart);
+        if (!entry) continue;
+        if (chartDialog.contains(element)) {
+            expandedChartEntries.set(element, entry);
+            if (entry.spec) _fitExpandedChart(element, entry);
+        }
+        bindChart(element, entry.spec, range => {
+            range ? state.zoom.set(entry.key, range) : state.zoom.delete(entry.key);
+            if (chartDialog.open && entry.metric) expandChart(entry.metric);
+            else if (root === detailDialog && detailDialog.open) {
+                openRun(detailDialog.dataset.run, state.dialogTab);
+            } else render();
+        });
+    }
+}
+
+/**
+ * Purpose: Fit an expanded plot and keep keyboard focus on its replacement.
+ * Input: The plot element and its chart registry entry.
+ * Output: The entry and SVG use the same viewport for labels and interaction.
+ */
+function _fitExpandedChart(element, entry) {
+    const svg = element.querySelector('.chart-svg');
+    const hasFocus = svg === document.activeElement;
+    const viewportWidth = svg.clientWidth, viewportHeight = svg.clientHeight;
+    entry.spec = {...entry.spec, viewportWidth, viewportHeight};
+    element.innerHTML = renderChart(entry.spec, element.dataset.chart);
+    if (hasFocus) element.querySelector('.chart-svg').focus({preventScroll:true});
+}
 
 /** Redraw only this metric while the slider keeps focus and pointer capture.
  * Main callers: delegated input/change events. Compact and expanded copies stay
@@ -583,9 +632,10 @@ function updatePanelSmoothing(target) {
   const {all,series,spec} = metricPanel(metric,chartRuns());
   for (const card of document.querySelectorAll('.chart-card[data-metric]')) {
     if (card.dataset.metric !== metric) continue;
-    const plot = card.querySelector('[data-chart]'), entry = chartRegistry.get(plot?.dataset.chart);
+    const plot = card.querySelector('[data-chart]');
+    const entry = expandedChartEntries.get(plot) || chartRegistry.get(plot?.dataset.chart);
     if (!entry) continue;
-    chartRegistry.set(plot.dataset.chart,{...entry,spec,series});
+    Object.assign(entry, {spec, series});
     plot.innerHTML = renderChart(spec,plot.dataset.chart);
     bindCharts(card);
     const control = card.querySelector('[data-panel-smoothing]');
@@ -1003,9 +1053,12 @@ function renderRunFiles(run, mode = "both") {
 
 const chartRuns = () => state.view === 'run' ? projectRuns().filter(run=>run.key===state.runKey) : visibleRuns();
 function expandChart(metric) {
+  expandedChartObserver.disconnect();
   chartDialog.innerHTML = `<header class="dialog-header"><h2>${e(panelTitle(metric))}</h2><button class="icon-btn" data-action="close-dialog" aria-label="Close expanded chart">${icon('close')}</button></header><div class="dialog-body">${renderMetricCard(metric, chartRuns(), true)}<p class="table-note">Drag over the chart to zoom. Double click to reset. Hover to inspect values.</p></div>`;
   if (!chartDialog.open) chartDialog.showModal();
   bindCharts(chartDialog);hydrateMedia(chartDialog);
+  const plot = chartDialog.querySelector('[data-chart]');
+  if (plot) expandedChartObserver.observe(plot);
 }
 
 function download(content, filename, type = 'text/csv') {
