@@ -21,6 +21,7 @@ from urllib import request
 
 import backprop
 from backprop.foundry import FoundryStore
+from backprop.media import EncodedMedia
 from backprop_backend.http_store import BackendError
 from backprop.local_config import local_config, normalize_local_config
 from backprop_backend.local.database import LocalDatabase
@@ -477,6 +478,83 @@ class LocalBackendTests(unittest.TestCase):
             stale = {**server.connection, "local_id": self.store.config["local_id"]}
             with self.assertRaisesRegex(ValueError, "installation changed"):
                 LocalStore(stale)
+
+    def test_import_preserves_live_media_symlinks_and_source_state(self) -> None:
+        """
+        Purpose: Import authorized live media without changes to the source journal.
+        Input: An offline journal with a symlink and a Foundry acknowledgement.
+        Output: Verified local media bytes and an unchanged source after replay.
+        """
+        source = self.root / "linked.bin"
+        source.write_bytes(b"before")
+        run = backprop.Run(
+            project="linked-import", entity="local", mode="offline",
+            dir=self.root / "linked-runs",
+            settings={"allow_media_symlink": True, "console": "off",
+                      "silent": True, "disable_git": True, "x_disable_stats": True},
+        )
+        self.addCleanup(run.finish)
+        run.log({"media": EncodedMedia(source)})
+        run.finish()
+        directory = Path(run.sync_dir)
+        linked = next(path for path in directory.rglob("*") if path.is_symlink())
+        self.assertEqual(linked.readlink(), source.resolve())
+        (directory / "ack.json").write_text('{"count":1,"byte_offset":1}')
+        source.write_bytes(b"before import")
+        files = {path: path.read_bytes() for path in directory.rglob("*")
+                 if path.is_file() and not path.is_symlink()}
+        links = {path: path.readlink() for path in directory.rglob("*")
+                 if path.is_symlink()}
+        paths = set(directory.rglob("*"))
+
+        sync(run.sync_dir, sink=self.store)
+        offset = self.server.database.end_offset()
+        sync(run.sync_dir, sink=self.store)
+
+        self.assertEqual(self.server.database.end_offset(), offset)
+        self.assertEqual({path: path.read_bytes() for path in files}, files)
+        self.assertEqual({path: path.readlink() for path in links}, links)
+        self.assertEqual(set(directory.rglob("*")), paths)
+        history = self.store.read_events(project="linked-import", run_id=run.id)
+        reference = next(row["payload"]["metrics"]["media"] for row in history
+                         if row["type"] == "history")
+        self.assertEqual(self.store.download_file(reference), b"before import")
+
+    def test_identical_local_artifact_rounds_get_distinct_operations(self) -> None:
+        """
+        Purpose: Start a fresh artifact round after a local acknowledgement.
+        Input: Two fresh artifacts with identical content on one writer.
+        Output: Two distinct operations and two independently committed versions.
+        """
+        run = backprop.Run(
+            project="identical-rounds", entity="local", group="workers",
+            dir=self.root / "rounds", _sink=self.store,
+            _deployment=self.server.connection,
+            settings={"console": "off", "silent": True, "disable_git": True,
+                      "x_disable_stats": True},
+        )
+        self.addCleanup(run.finish)
+        artifacts = []
+        for _ in range(2):
+            artifact = backprop.Artifact("model", "model", metadata={"same": True})
+            with artifact.new_file("weights.txt") as output:
+                output.write("identical weights")
+            run.upsert_artifact(artifact)
+            run.finish_artifact(artifact)
+            artifacts.append(artifact)
+        run.finish()
+
+        self.assertNotEqual(artifacts[0]._operation_id, artifacts[1]._operation_id)
+        self.assertNotEqual(artifacts[0].id, artifacts[1].id)
+        events = self.store.read_events(project="identical-rounds", run_id=run.id)
+        for kind in ("artifact_part", "artifact"):
+            records = [row for row in events if row["type"] == kind]
+            self.assertEqual(len(records), 2)
+            self.assertEqual(len({row["payload"]["operation_id"] for row in records}), 2)
+        for artifact in artifacts:
+            self.assertEqual(artifact.state, "COMMITTED")
+            self.assertEqual(artifact.get_entry("weights.txt")._read_verified_bytes(),
+                             b"identical weights")
 
     def test_materialized_artifacts_replay_into_another_backend(self) -> None:
         """

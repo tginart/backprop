@@ -38,7 +38,7 @@ def operation_id(run, group, manifest):
     value=fingerprint(run,group,manifest)
     for path in writer_journals(run):
         events=read_journal(path,project_artifacts=False)
-        journal=Journal(path,_branch_prepared=read_local_branch(path) is not None)
+        journal=Journal(path,run._sink,_branch_prepared=read_local_branch(path) is not None)
         acknowledged=journal.acknowledged_count()
         for position,event in enumerate(events,1):
             payload=event['payload']

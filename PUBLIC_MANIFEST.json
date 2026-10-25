@@ -174,8 +174,8 @@
     },
     {
       "path": "backend/local/journal_import.py",
-      "bytes": 5797,
-      "sha256": "3abaa6f5c31695ea26893ade4e9125b0cbe4abf4f67f3cbc340ca2af2eb66447"
+      "bytes": 5812,
+      "sha256": "0a30d61237e26f7e17e56df3c105a91e33e54c0cb5c3dac9a5230dbe819ef582"
     },
     {
       "path": "backend/local/queries.py",
@@ -539,8 +539,8 @@
     },
     {
       "path": "sdk/backprop/artifact_operations.py",
-      "bytes": 3941,
-      "sha256": "553771fd87ba31b8763ccc0c66584628bb9764f0b4a78a721f59f21fd814b6a4"
+      "bytes": 3951,
+      "sha256": "a10a1302bfafc60f43b4fa1b4c84a986f944e4f3c3ca38ff4ffbb4c481d530ab"
     },
     {
       "path": "sdk/backprop/artifact_paths.py",
@@ -2744,8 +2744,8 @@
     },
     {
       "path": "tests/test_local_backend.py",
-      "bytes": 35823,
-      "sha256": "686ffc822d3a8392a9e9844263489630edccbf720df6a9be7443b4e571575270"
+      "bytes": 39835,
+      "sha256": "61d7778efa0af098687b3256a4a7b869bee2509e48e11f347d11cdf6fcbe7660"
     },
     {
       "path": "tests/test_local_wheel.py",

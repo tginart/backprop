@@ -61,7 +61,7 @@ def import_journal(directory: str | Path, store: LocalStore) -> int:
         state = _snapshot_records(source, snapshot, previous)
         for name in ("files", "media", "live-media"):
             if (source / name).is_dir():
-                shutil.copytree(source / name, snapshot / name)
+                shutil.copytree(source / name, snapshot / name, symlinks=True)
         intent = source / "branch-intent.json"
         if intent.is_file():
             shutil.copyfile(intent, snapshot / intent.name)
