@@ -149,8 +149,8 @@
     },
     {
       "path": "backend/http_store.py",
-      "bytes": 20437,
-      "sha256": "74a0af4973d8d2e4bfecb68459a0abe81fa76bd5ac5f4b63716b94e296bce9ca"
+      "bytes": 20459,
+      "sha256": "577bbc170b71223ced664cea8f454a8b47ea1824f1524d142349c0675eeaf8ef"
     },
     {
       "path": "backend/local/__init__.py",
@@ -159,8 +159,8 @@
     },
     {
       "path": "backend/local/auth.py",
-      "bytes": 1344,
-      "sha256": "39c4d9c415525217a051a3717d1068d1a77393c1247c215284dff8428a18f34a"
+      "bytes": 1483,
+      "sha256": "47d209594247f3426ebb6ace816eda6e1315d2195e4838030a3dfc6b32a168fb"
     },
     {
       "path": "backend/local/config.py",
@@ -174,8 +174,8 @@
     },
     {
       "path": "backend/local/journal_import.py",
-      "bytes": 5812,
-      "sha256": "0a30d61237e26f7e17e56df3c105a91e33e54c0cb5c3dac9a5230dbe819ef582"
+      "bytes": 8838,
+      "sha256": "af5a800647eb1971f7389d78206db293ccfbbdff16b87755e2f01b8fe4ca9e53"
     },
     {
       "path": "backend/local/queries.py",
@@ -2409,8 +2409,8 @@
     },
     {
       "path": "tests/test_backend_connection.py",
-      "bytes": 8753,
-      "sha256": "2e91df708057ea1a06a06e306e8af0b0201ea2c19e38d0ab6f54836d7d5605b0"
+      "bytes": 11019,
+      "sha256": "af44b13a5ab1aae52bf244e3a8f9a7db852dbddf4766dd47b36d59081568297c"
     },
     {
       "path": "tests/test_backend_layout.py",
@@ -2424,8 +2424,8 @@
     },
     {
       "path": "tests/test_backend_transport.py",
-      "bytes": 15640,
-      "sha256": "0478bae6cb5623a9376b783d07ba382867b2046a801701e3825f61d51d65e7a7"
+      "bytes": 17472,
+      "sha256": "03084f0bf5c1a2c658c230c906d3248181dd696fb73c50b5dc00586045d607c5"
     },
     {
       "path": "tests/test_backend_upload_retry.py",
@@ -2744,8 +2744,8 @@
     },
     {
       "path": "tests/test_local_backend.py",
-      "bytes": 39835,
-      "sha256": "61d7778efa0af098687b3256a4a7b869bee2509e48e11f347d11cdf6fcbe7660"
+      "bytes": 45722,
+      "sha256": "67074f6f1b1e1d320d908b2da391dc2066d7df5c2e8845515f19be6ac93b8851"
     },
     {
       "path": "tests/test_local_wheel.py",

@@ -100,8 +100,8 @@ class HttpStore:
                 try:
                     try:
                         if (exc.headers or {}).get("Content-Encoding", "").lower() == "gzip":
-                            with gzip.GzipFile(fileobj=exc) as body:
-                                detail = body.read(1000).decode("utf-8", errors="replace")
+                            with gzip.GzipFile(fileobj=exc) as diagnostic_body:
+                                detail = diagnostic_body.read(1000).decode("utf-8", errors="replace")
                         else:
                             detail = exc.read(1000).decode("utf-8", errors="replace")
                         can_retry = can_retry or self._upload_transaction_conflict(path, method, exc.code, detail)

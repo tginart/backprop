@@ -268,6 +268,41 @@ class NativeStorageTests(unittest.TestCase):
         self.assertEqual(denied.exception.status_code, 403)
         self.assertFalse(denied.exception.retryable)
 
+    def test_gzip_transient_errors_replay_the_original_request_body(self) -> None:
+        """
+        Purpose: Retain the original payload across compressed HTTP error retries.
+        Input: Read, JSON publication, and binary upload requests with a gzip 503.
+        Output: The retry sends the same method and bytes, including an absent body.
+        """
+        import gzip
+        import io
+        from urllib.error import HTTPError
+        for method, payload, expected in (
+                ('GET', None, None),
+                ('POST', {'records': [1]}, b'{"records":[1]}'),
+                ('POST', b'binary artifact', b'binary artifact')):
+            with self.subTest(method=method, payload=payload):
+                attempts = []
+
+                def respond(req, **options):
+                    attempts.append((req.get_method(), req.data))
+                    if len(attempts) == 1:
+                        raise HTTPError(req.full_url, 503, 'unavailable',
+                                        {'Content-Encoding': 'gzip'},
+                                        io.BytesIO(gzip.compress(b'transient')))
+                    self.assertEqual(req.data, expected)
+                    result = MagicMock()
+                    result.__enter__.return_value = result
+                    result.headers = {'Content-Type': 'application/json'}
+                    result.read.return_value = b'{"ok":true}'
+                    return result
+
+                with patch.object(self.store.opener, 'open', side_effect=respond), \
+                        patch.object(MODULE.time, 'sleep'):
+                    self.assertEqual(self.store.request('/retry', method, payload,
+                                                        retry=True), {'ok': True})
+                self.assertEqual(attempts, [(method, expected)] * 2)
+
     def test_large_event_rejected_before_network_call(self):
         large = event("1")
         large["payload"] = {"table": "a" * 900_001}

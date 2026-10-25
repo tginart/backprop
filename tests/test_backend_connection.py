@@ -134,6 +134,48 @@ class BackendConnectionTests(unittest.TestCase):
                 path.write_text(json.dumps(config))
                 self.assertEqual(load_config(path), config)
 
+    def test_local_login_uses_settings_and_environment_timeout(self) -> None:
+        """
+        Purpose: Apply configured login deadlines to the local handshake.
+        Input: Setup settings, environment settings, and an explicit override.
+        Output: Login expires on time without a late session or settings change.
+        """
+        for source in ('setup', 'environment', 'explicit'):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory, \
+                    running_server(directory) as server:
+                release, finished = threading.Event(), threading.Event()
+                original = LocalStore.request
+                timeouts = []
+
+                def blocked(store, path, *args, **kwargs):
+                    timeouts.append(store.config.get('timeout'))
+                    try:
+                        release.wait(2)
+                        return original(store, path, *args, **kwargs)
+                    finally:
+                        finished.set()
+
+                environment = {'BACKPROP_CONFIG': str(Path(directory) / 'connection.json')}
+                if source == 'environment':
+                    environment['WANDB_LOGIN_TIMEOUT'] = '0.05'
+                with patch.dict('os.environ', environment, clear=True), \
+                        patch.object(backprop, '_setup_settings', None), \
+                        patch.object(backprop, 'run', None), \
+                        patch.object(LocalStore, 'request', blocked):
+                    if source != 'environment':
+                        backprop.setup(settings={'login_timeout': 0.05 if source == 'setup' else 1})
+                    selected = backprop._setup_settings
+                    start = time.monotonic()
+                    try:
+                        with self.assertRaises(TimeoutError):
+                            backprop.login(**({'timeout': 0.05} if source == 'explicit' else {}))
+                        self.assertLess(time.monotonic() - start, 0.5)
+                        self.assertEqual(timeouts, [0.05])
+                    finally:
+                        release.set()
+                        self.assertTrue(finished.wait(2))
+                    self.assertIs(backprop._setup_settings, selected)
+
     def test_consumers_do_not_import_or_select_specific_backends(self) -> None:
         """
         Purpose: Prevent backend decisions from returning to SDK and dashboard consumers.

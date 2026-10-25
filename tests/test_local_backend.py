@@ -556,6 +556,111 @@ class LocalBackendTests(unittest.TestCase):
             self.assertEqual(artifact.get_entry("weights.txt")._read_verified_bytes(),
                              b"identical weights")
 
+    def test_import_keeps_live_media_after_restart_and_interrupted_responses(self) -> None:
+        """
+        Purpose: Retain imported media choices through edits, deletion, and restart.
+        Input: An offline journal and successful or interrupted local imports.
+        Output: Later records commit with the first media bytes and intact source state.
+        """
+        settings = {"allow_media_symlink": True, "console": "off", "silent": True,
+                    "disable_git": True, "x_disable_stats": True}
+        for fault in ("none", "claim", "publish"):
+            with self.subTest(fault=fault):
+                source = self.root / (fault + ".bin")
+                source.write_bytes(b"first choice")
+                run = backprop.Run(project="frozen-import", entity="local",
+                                   mode="offline", dir=self.root / fault,
+                                   settings=settings)
+                self.addCleanup(run.finish)
+                run.log({"media": EncodedMedia(source)})
+                run.finish()
+                directory = Path(run.sync_dir)
+                (directory / "ack.json").write_text('{"count":1,"byte_offset":1}')
+                originals = {path: path.read_bytes() for path in directory.rglob("*")
+                             if path.is_file() and not path.is_symlink()}
+                database = self.root / (fault + "-database")
+                with running_server(database) as server:
+                    store = LocalStore(server.connection)
+                    if fault == "none":
+                        store.import_journal(directory)
+                    else:
+                        name = "claim_artifact_resolution" if fault == "claim" else "publish"
+                        original = getattr(store, name)
+
+                        def lost(*args, **kwargs):
+                            original(*args, **kwargs)
+                            raise OSError("response lost after commit")
+
+                        with patch.object(store, name, side_effect=lost):
+                            with self.assertRaisesRegex((OSError, BackpropError), "response lost"):
+                                store.import_journal(directory)
+                self.assertEqual({path: path.read_bytes() for path in originals}, originals)
+                source.write_bytes(b"changed after first attempt")
+                with running_server(database) as server:
+                    store = LocalStore(server.connection)
+                    store.import_journal(directory)
+                    offset = server.database.end_offset()
+                    source.unlink()
+                    extra = {**event("extra-" + fault), "project": "frozen-import",
+                             "run_id": run.id}
+                    Journal(directory).append(extra)
+                    store.import_journal(directory)
+                    self.assertEqual(server.database.end_offset(), offset + 1)
+                    rows = store.read_events(project="frozen-import", run_id=run.id)
+                    reference = next(row["payload"]["metrics"]["media"] for row in rows
+                                     if row["type"] == "history" and "media" in row["payload"]["metrics"])
+                    self.assertEqual(store.download_file(reference), b"first choice")
+                    self.assertIn(extra, rows)
+                for path, data in originals.items():
+                    if path.name == "events.jsonl":
+                        self.assertTrue(path.read_bytes().startswith(data))
+                    else:
+                        self.assertEqual(path.read_bytes(), data)
+
+    def test_concurrent_importers_use_the_same_live_media_claim(self) -> None:
+        """
+        Purpose: Publish one media descriptor when concurrent snapshots contain different bytes.
+        Input: Two imports with a source edit before the first storage claim.
+        Output: Both imports succeed with the same durable winner and stream offsets.
+        """
+        source = self.root / "race.bin"
+        source.write_bytes(b"first candidate")
+        run = backprop.Run(
+            project="media-race", entity="local", mode="offline", dir=self.root / "race",
+            settings={"allow_media_symlink": True, "console": "off", "silent": True,
+                      "disable_git": True, "x_disable_stats": True},
+        )
+        self.addCleanup(run.finish)
+        run.log({"media": EncodedMedia(source)})
+        run.finish()
+        ready, release = threading.Event(), threading.Event()
+        original = self.store.claim_artifact_resolution
+
+        def delayed(key, candidate):
+            if candidate.get("kind") == "local-journal-live-media":
+                ready.set()
+                if not release.wait(5):
+                    raise TimeoutError("Concurrent import did not finish")
+            return original(key, candidate)
+
+        with ThreadPoolExecutor(max_workers=1) as workers, \
+                patch.object(self.store, "claim_artifact_resolution", side_effect=delayed):
+            first = workers.submit(self.store.import_journal, run.sync_dir)
+            try:
+                self.assertTrue(ready.wait(3))
+                source.write_bytes(b"second candidate wins")
+                other = LocalStore(self.server.connection)
+                count = other.import_journal(run.sync_dir)
+                offset = self.server.database.end_offset()
+            finally:
+                release.set()
+            self.assertEqual(first.result(timeout=5), count)
+        self.assertEqual(self.server.database.end_offset(), offset)
+        rows = self.store.read_events(project="media-race", run_id=run.id)
+        reference = next(row["payload"]["metrics"]["media"] for row in rows
+                         if row["type"] == "history")
+        self.assertEqual(self.store.download_file(reference), b"second candidate wins")
+
     def test_materialized_artifacts_replay_into_another_backend(self) -> None:
         """
         Purpose: Keep backend file references and resolution caches in separate scopes.

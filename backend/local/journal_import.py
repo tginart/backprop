@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
+import re
 import shutil
 import tempfile
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from backprop.transport import Journal
     from .store import LocalStore
 
 
@@ -67,9 +70,68 @@ def import_journal(directory: str | Path, store: LocalStore) -> int:
             shutil.copyfile(intent, snapshot / intent.name)
             _restore_branch_snapshot(snapshot, store)
         journal = Journal(snapshot, sink=store)
+        _restore_live_media(journal, identifier)
         journal.flush()
         store.request(endpoint, "POST", state, retry=True)
     return state["count"]
+
+
+def _restore_live_media(journal: Journal, source_id: str) -> None:
+    """
+    Purpose: Restore installation-owned media choices before journal publication.
+    Input: The isolated journal snapshot and the source journal identity.
+    Output: Immutable staged bytes from the first durable claim for each binding.
+    Note: Concurrent importers use the same claim before they publish an event.
+    """
+    from backprop.live_media import _under, _write
+    from backprop.transport import BackpropError, read_journal
+    store = journal.sink
+    events = read_journal(journal.directory, project_artifacts=False)
+    restored = set()
+    for reference in _live_media_references(events):
+        identity, name = reference.get("_backprop_live_media"), reference.get("name")
+        if (not isinstance(identity, str) or re.fullmatch(r"[0-9a-f]{32}", identity) is None
+                or not isinstance(name, str) or name in {"", ".", ".."}
+                or Path(name).name != name):
+            raise BackpropError("Invalid imported live media reference")
+        if identity in restored:
+            continue
+        scope = {"kind": "local-journal-live-media", "source_id": source_id,
+                 "binding_id": identity, "name": name}
+        key = hashlib.sha256(json.dumps(scope, sort_keys=True).encode()).hexdigest()
+        winner = store.read_artifact_resolution(key)
+        if winner is None:
+            snapshot = journal.freeze_live_media(reference)
+            uploaded = journal._resolve(snapshot)
+            winner = store.claim_artifact_resolution(key, {**scope, "file": uploaded})
+        if any(winner.get(field) != value for field, value in scope.items()):
+            raise BackpropError("Imported live media claim has a conflicting scope")
+        data = store.download_file(winner["file"])
+        digest = hashlib.sha256(data).hexdigest()
+        _under(journal.directory, f"files/{digest}/{name}")
+        snapshot = journal.stage_file(None, data=data, name=name)
+        choice = _under(journal.directory, f"live-media/{identity}.snapshot.json")
+        if choice.is_symlink():
+            raise BackpropError("Frozen live media metadata cannot be a symlink")
+        _write(choice, snapshot)
+        journal.freeze_live_media(reference)
+        restored.add(identity)
+
+
+def _live_media_references(value: object) -> Iterator[dict]:
+    """
+    Purpose: Find linked media in nested event payloads without a record change.
+    Input: The complete journal records or one nested value.
+    Output: Each queued live media reference in source order.
+    """
+    if isinstance(value, dict):
+        if "_backprop_live_media" in value:
+            yield value
+        for child in value.values():
+            yield from _live_media_references(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _live_media_references(child)
 
 
 def _restore_branch_snapshot(directory: Path, store: LocalStore) -> None:

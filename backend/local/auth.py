@@ -12,6 +12,7 @@ from .config import normalize_local_config
 def authenticate_candidate(*, config: dict, native_store: Callable,
                            host: str | None = None, verify: bool = False,
                            timeout: float | None = None,
+                           settings: Any = None,
                            **options: Any) -> AuthCandidate:
     """
     Purpose: Validate the local origin without credential access or mutation.
@@ -21,6 +22,8 @@ def authenticate_candidate(*, config: dict, native_store: Callable,
     config = normalize_local_config(config)
     if host is not None and host != config["host"]:
         raise ValueError("Local login host must match BACKPROP_CONFIG")
+    if timeout is None and settings is not None:
+        timeout = settings.login_timeout
     if verify:
         from backprop.runtime import bounded_call
         if timeout:
