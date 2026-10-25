@@ -164,6 +164,15 @@ class FoundryArtifactResolutionHTTP(ContextTestCase):
         with patch.object(self.store.opener,'open',side_effect=[URLError(TimeoutError()),self.error('FileAlreadyExists'),self.response(winner)]),patch('backprop.foundry.time.sleep'):
             self.assertEqual(self.store.claim_artifact_resolution(self.key,candidate),winner)
 
+    def test_unreadable_committed_winner_keeps_foundry_error_identity(self):
+        failures = [self.error('FileAlreadyExists'), self.error('FileNotFoundOnBranch')]
+        with patch.object(self.store.opener, 'open', side_effect=failures):
+            with self.assertRaises(FoundryError) as raised:
+                self.store.claim_artifact_resolution(self.key, {'chosen': 1})
+        self.assertTrue(raised.exception.retryable)
+        self.assertIsInstance(raised.exception.__cause__, FoundryError)
+        self.assertEqual(raised.exception.__cause__.error_name, 'FileAlreadyExists')
+
     def test_only_known_append_contention_retries(self):
         with patch.object(self.store.opener,'open',side_effect=[self.error('OpenTransactionAlreadyExists',409),self.response({})]) as opened,patch('backprop.foundry.time.sleep'):
             self.assertEqual(self.store.claim_artifact_resolution(self.key,{'chosen':1}),{'chosen':1})

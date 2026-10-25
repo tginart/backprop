@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "deploy"))
-SPEC = importlib.util.spec_from_file_location("backprop_backend_provision", ROOT / "backend/provision.py")
+SPEC = importlib.util.spec_from_file_location("backprop_backend_provision", ROOT / "backend/foundry/provision.py")
 PROVISION = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PROVISION)
 

@@ -26,7 +26,7 @@ def log_checkpoint(run, artifact, aliases):
     if not run.disabled:
         digest = artifact._content_digest([])
         with run._lock:
-            for event in iter_artifact_events(read_journal(run.sync_dir)):
+            for event in iter_artifact_events(read_journal(run.sync_dir, sink=run._sink)):
                 prior = event['payload']
                 if (prior['name'], prior['artifact_type'], prior['digest']) == (artifact.name, artifact.type, digest):
                     run._check()

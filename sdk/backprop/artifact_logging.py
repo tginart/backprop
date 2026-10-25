@@ -104,12 +104,14 @@ def relog(run, artifact, aliases, tags):
     owner = getattr(artifact, '_owner', None)
     source = getattr(owner, '_journal', None)
     directory = source.directory if source is not None else artifact._store.directory if isinstance(artifact._store, JournalArtifactStore) else None
+    source_sink = source.sink if source is not None else getattr(artifact._store, 'remote', None)
     if (directory is not None and run._sink is not None
             and (artifact.entity, artifact.project) == (run.entity, run.project)
             and (getattr(artifact, "_incremental_pending", False) or getattr(artifact, "_distributed_pending", False))):
         from .deferred_incremental_artifacts import prepare_source
         prepare_source(artifact, directory, run._sink)
-    events = read_journal(directory) if directory is not None else artifact._store.read_events(entity=artifact.entity, project=artifact.project)
+        source_sink = run._sink
+    events = read_journal(directory, sink=source_sink) if directory is not None else artifact._store.read_events(entity=artifact.entity, project=artifact.project)
     original = next((e for e in iter_artifact_events(events) if e['payload']['artifact_id']==artifact._id
                      and e.get('entity', '')==artifact.entity and e['project']==artifact.project), None)
     if original is None:

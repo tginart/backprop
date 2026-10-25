@@ -1,10 +1,11 @@
 # Backprop examples
 
 These demos run real, small optimizations on synthetic data. They use the public Python
-SDK and your existing Foundry installation. They do not provision resources.
+SDK and your configured local or Foundry installation. They do not provision Foundry resources.
 
 | Example | What it demonstrates | Runs online? | Extra dependencies |
 | --- | --- | --- | --- |
+| [local_smoke.py](local_smoke.py) | One command starts the local dashboard, live metrics, table, Plotly and verified artifact download | Local server | None beyond the SDK |
 | [seed_demo.py](seed_demo.py) | Four learning rates, scalar comparisons, incremental tables, confusion matrix, probability image and model artifacts | Optional | `media` |
 | [offline_sync.py](offline_sync.py) | Durable local logging, incremental tables, upload later and an empty repeated sync | Only with `--sync` | None beyond the SDK |
 | [resume_training.py](resume_training.py) | Save model state, then continue the same run in a separate invocation | Required | None beyond the SDK |
@@ -13,6 +14,31 @@ SDK and your existing Foundry installation. They do not provision resources.
 | [torch_training.py](torch_training.py) | CPU neural-network training, gradients/parameters, observed graph, system metrics and an optimizer checkpoint | Optional | `torch,media,stats` |
 | [plotly_gallery.py](plotly_gallery.py) | Interactive 2D progress and 3D parameter/loss trajectories, with their source table | Optional | `plots` |
 | [inspect_project.py](inspect_project.py) | Read experiment summaries and export full histories through `Api` | Required, read-only | None beyond the SDK |
+
+## Local smoke test
+
+From this source checkout, install the SDK and start the demo:
+
+```sh
+python -m pip install .
+python examples/local_smoke.py
+```
+
+It opens the dashboard and records a one-minute optimization. Watch `train/loss`,
+inspect the table and Plotly chart under `outputs`, and download `model.json` from
+Artifacts. The terminal reports `SMOKE PASSED` after SDK readback succeeds.
+The dashboard stays up until Ctrl-C; data and journals persist under
+`.backprop/local-smoke/`. Each invocation adds a new run.
+
+Use `--directory PATH` to choose the data location or `--port 0` for a free port.
+For a fast automated run without a browser launch:
+
+```sh
+python examples/local_smoke.py --port 0 --steps 5 --interval 0.02 --no-open --exit-after-demo
+```
+
+The remaining examples use `BACKPROP_CONFIG` for either backend. Local connections
+need no token. The Foundry credential instructions below apply to Foundry mode.
 
 ## Setup
 
@@ -36,7 +62,7 @@ export BACKPROP_CONFIG=/absolute/path/to/backprop-config.json
 
 Supply your Foundry token through `FOUNDRY_TOKEN` / `BACKPROP_TOKEN`, or use
 `backprop.login()`. Do not use `deploy/config.local.json` as the SDK connection file.
-Every script accepts `--config PATH` as an alternative to `BACKPROP_CONFIG`. Examples do
+The remaining examples accept `--config PATH` as an alternative to `BACKPROP_CONFIG`. Examples do
 not read operator secrets or require Google Cloud.
 
 The default entity/project is `backprop/backprop-examples`. Change it with `--entity

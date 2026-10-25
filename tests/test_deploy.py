@@ -34,14 +34,15 @@ ASSETS.update({"vega-view.mjs", "vega-6.2.0.min.js", "vega-lite-6.4.1.min.js",
                "vega-interpreter-2.2.1.min.js", "vega-LICENSE.txt", "vega-lite-LICENSE.txt", "vega-interpreter-LICENSE.txt", "vega-provenance.json"})
 ASSETS.update({"plotly-resources.mjs", "plotly-strict-3.6.0.min.js", "plotly-map-sat.json",
                "plotly-map-hybrid.json", "plotly-map-LICENSE.txt", "plotly-topology-provenance.json"})
-ASSETS.update({"history-completeness.mjs", "view-state.mjs"})
+ASSETS.update({"history-completeness.mjs", "view-state.mjs", "vega-provenance.json"})
 ASSETS.update({"experience.mjs", "chart-series.mjs", "workspace-store.mjs", "workspace-session.mjs",
                "panel-catalog.mjs", "panel-bank.mjs", "project-pages.mjs", "run-comparer.mjs", "chart-defaults.mjs"})
 ASSETS.update({'artifact-collections.mjs', 'tensorboard-groups.mjs', 'tensorboard-summary.mjs'})
 ASSETS.update(f"{scope}_{resolution}m.json"
               for scope in ("africa", "antarctica", "asia", "europe", "north-america", "oceania",
                             "south-america", "usa", "world") for resolution in (110, 50))
-PUBLIC_FIELDS = {"host", "client_id", "app_url", "stream_dataset_rid", "media_dataset_rid", "stream_view_rid", "branch", "map_resource_origins"}
+ASSETS.update({"backends/connection.js", "backends/http.js", "backends/foundry.js", "backends/local.js"})
+PUBLIC_FIELDS = {"backend", "host", "client_id", "app_url", "stream_dataset_rid", "media_dataset_rid", "stream_view_rid", "branch", "map_resource_origins"}
 SECRET_MARKER = "operator-credential-must-never-ship"
 STATE = {"client_id": "public-client-identifier", "app_url": "https://backprop.example.com/",
          "application_rid": "ri.third-party-applications.main.application.test",
@@ -63,11 +64,13 @@ class DeploymentBoundaryTests(unittest.TestCase):
         web.mkdir()
         (self.fixture / "THIRD_PARTY_NOTICES.md").write_text("Synthetic notices")
         for name in ASSETS:
-            (web / name).write_text(f"public asset {name}\n")
+            path = web / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"public asset {name}\n")
         (web / "index.html").write_text("<!doctype html><html><head><title>Backprop</title></head><body>Public app</body></html>")
         for directory in ("deploy", "backend", "sdk", ".backprop", ".git"):
             path = self.fixture / directory
-            path.mkdir()
+            path.mkdir(exist_ok=True)
             (path / "state.json").write_text(SECRET_MARKER)
         (web / ".env").write_text(SECRET_MARKER)
         (web / ".hidden.js").write_text(SECRET_MARKER)
@@ -118,7 +121,8 @@ class DeploymentBoundaryTests(unittest.TestCase):
             self.assertEqual(set(bundle.namelist()), ASSETS | {"config.json", "THIRD_PARTY_NOTICES.md"})
             for member in bundle.namelist():
                 self.assertNotIn(SECRET_MARKER.encode(), bundle.read(member))
-                self.assertNotIn("/", member)
+                self.assertFalse(member.startswith("/"))
+                self.assertNotIn("..", Path(member).parts)
             generated = json.loads(bundle.read("config.json"))
         self.assertEqual(generated, DEPLOY.public_config(STATE, RESOURCES))
 
@@ -182,8 +186,8 @@ class DeploymentBoundaryTests(unittest.TestCase):
         self.assertGreater(len(references), 10, "Dependency inspection must discover the actual application graph")
         for importer, dependency in references:
             with self.subTest(importer=importer, dependency=dependency):
-                self.assertTrue(dependency.startswith("./"), "Published code must use explicit local dependencies")
-                target = posixpath.normpath(posixpath.join(posixpath.dirname(importer), dependency))
+                self.assertTrue(dependency.startswith(("./", "../")), "Published code must use explicit local dependencies")
+                target = posixpath.normpath(posixpath.join("/", posixpath.dirname(importer), dependency)).lstrip("/")
                 self.assertIn(target, sources, f"Release omits {dependency} required by {importer}")
 
     def test_pinned_plotly_lazy_asset_and_license_ship_unchanged(self):

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .artifacts import Artifact
 from .artifact_events import iter_artifact_events
-from .foundry import FoundryStore
+from backprop_backend.connection import snapshot_store, restore_store
 from .transport import read_journal
 
 
@@ -22,7 +22,7 @@ def snapshot_run(run):
     """Capture detached inputs and mark subsequent parent events as shared.
 
     Main callers: WandbLogger.__getstate__. Never pickle locks, upload threads,
-    open HTTP handlers or the live Run object. A supplied native Foundry transport
+    open HTTP handlers or the live Run object. A supplied backend transport
     is reconstructed from its connection inputs in the receiving process.
     """
     with run._lock:
@@ -45,10 +45,9 @@ def snapshot_run(run):
                   for key, value in run.config._data.items()}
         ids = {value['artifact_id'] for value in values.values()
                if isinstance(value, dict) and value.get('_type')=='artifact'}
-        manifests = [event for event in iter_artifact_events(read_journal(run.sync_dir))
+        manifests = [event for event in iter_artifact_events(read_journal(run.sync_dir, sink=run._sink))
                      if event['payload'].get('artifact_id') in ids] if ids else []
-        transport = ({'kind':'foundry', 'config':dict(run._sink.config), 'token':run._sink.token}
-                     if isinstance(run._sink, FoundryStore) else {'kind':'provided', 'sink':run._sink})
+        transport = snapshot_store(run._sink)
         return {'version':1, 'id':run.id, 'entity':run.entity, 'project':run.project,
                 'name':run.name, 'mode':run.mode, 'dir':str(Path(run._settings._wandb_dir).parent),
                 'settings':settings, 'deployment':dict(run._deployment), 'transport':transport,
@@ -71,12 +70,7 @@ def restore_run(descriptor):
     if active is not None and not active._closed and (active.entity,active.project,active.id)==scope:
         return active
     transport = descriptor['transport']
-    if transport['kind']=='foundry':
-        sink = FoundryStore(transport['config'], token=transport['token'])
-    elif transport['kind']=='provided':
-        sink = transport['sink']
-    else:
-        raise ValueError('Unknown Backprop logger transport')
+    sink = restore_store(transport)
     run = backprop.init(**{key:descriptor[key] for key in ['id','entity','project','name','mode','dir']},
         settings=descriptor['settings'], _sink=sink, _deployment=descriptor['deployment'],
         _shared_writer=True, _event_time_floor=descriptor['timestamp'], reinit='create_new')

@@ -28,13 +28,13 @@ def _writer_for(run):
     from .apis.public.mutations import MutationWriter
     store = run._sink
     if run.disabled and store is None:
-        from .login_session import authenticate_candidate, persist_candidate
+        from backprop_backend.connection import authenticate_candidate, persist_candidate
         from .transport import native_store
         from .errors import UsageError
         candidate = authenticate_candidate(key=run._settings.api_key,
             host=run._deployment.get('host'), prompt=True, verify=False,
             timeout=None, settings=run._settings, load_config=lambda: run._deployment,
-            native_store=native_store)
+            native_store=native_store, config=run._deployment)
         if candidate.mode != 'online':
             raise UsageError('Explicit evaluation publication requires Foundry credentials')
         if candidate.source == 'prompt':

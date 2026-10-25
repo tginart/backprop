@@ -1,4 +1,4 @@
-"""Single-process Run lifecycle, atomic history and Foundry persistence.
+"""Single-process Run lifecycle, atomic history and backend persistence.
 
 Architecture: resolve settings/identity -> replay prior events -> bind config and
 summary -> validate before changing pending rows -> durable journal -> background
@@ -181,19 +181,20 @@ class Run:
         if "base_url" in supplied_settings:
             host = urlsplit(self._settings.base_url).hostname or ""
             if host.endswith(("wandb.ai", "wandb.com")):
-                raise UsageError("Backprop settings.base_url must be a Foundry origin; omit it to use BACKPROP_CONFIG")
+                raise UsageError("Backprop settings.base_url must select your backend origin; omit it to use BACKPROP_CONFIG")
             self._deployment["host"] = self._settings.base_url.rstrip("/")
         self._settings._app_url = self._deployment.get("app_url")
         token = self._settings.api_key
         if _sink is None and self.mode in {"online", "shared"}:
-            from .login_session import authenticate_candidate, persist_candidate
+            from backprop_backend.connection import authenticate_candidate, persist_candidate
             # Public init has already selected auth before its active-run policy;
             # direct Run callers select here. Consuming its detached candidate
             # avoids a second prompt or a changed credential source after reinit.
             candidate = _prepared_auth if _prepared_auth is not None else authenticate_candidate(
                 key=token, host=self._deployment.get('host'), prompt=True,
                 verify=False, timeout=None, settings=self._settings,
-                load_config=lambda: self._deployment, native_store=native_store)
+                load_config=lambda: self._deployment, native_store=native_store,
+                config=self._deployment)
             if candidate.mode != 'online':
                 self._settings.mode = candidate.mode
                 self._shared = bool(_shared_writer)
@@ -201,7 +202,9 @@ class Run:
                 token = candidate.token
                 self._settings.api_key = token
                 if candidate.source == 'prompt': persist_candidate(candidate, self._settings)
-        self._sink = _sink if _sink is not None else (native_store(self._deployment, token=token) if self.mode in {"online", "shared"} else None)
+        self._sink = _sink
+        if self._sink is None and self.mode in {"online", "shared"}:
+            self._sink = self._initial_call(lambda: native_store(self._deployment, token=token))
         self._journal = None
         root = Path(dir or os.environ.get("BACKPROP_DIR") or self._settings.root_dir).expanduser().resolve()
         base = workspace_dir(root, self._settings.use_dot_wandb)
@@ -249,7 +252,7 @@ class Run:
             pending_parent = unresolved(source_dir)
             if pending_parent and not self.offline:
                 raise BackpropError("The local parent branch is unresolved; sync its directory before initializing online")
-            local = read_journal(source_dir) if (not self.offline or moment) and not pending_parent else []
+            local = read_journal(source_dir, sink=self._sink) if (not self.offline or moment) and not pending_parent else []
             remote = self._initial_call(lambda: self._sink.read_events(project=self.project, run_id=source_id, entity=self.entity)) if self._sink is not None and not self.offline and (not self._shared or selected_resume == "must") and (explicit_id or selected_resume or moment) else []
             previous = sorted({e["event_id"]: e for e in [*local, *remote]}.values(), key=lambda e: (e["timestamp"], e["event_id"]))
             previous = visible_events(previous)
@@ -261,7 +264,7 @@ class Run:
             if previous and not self._shared and not moment and selected_resume in {None, False, "never"}:
                 raise BackpropError(f"Run {self.id} exists; use resume='allow' or resume='must'")
             if moment and self._settings.fork_from:
-                destination = read_journal(self._sync_dir)
+                destination = read_journal(self._sync_dir, sink=self._sink)
                 if self._sink is not None and explicit_id and not self.offline:
                     destination += self._initial_call(lambda: self._sink.read_events(project=self.project, run_id=self.id, entity=self.entity))
                 if destination:
@@ -385,8 +388,8 @@ class Run:
         try:
             return bounded_call(function, max(0.000001, self._init_deadline-time.monotonic()), "init")
         except TimeoutError as error:
-            from .foundry import FoundryStore
-            if isinstance(self._sink, FoundryStore):
+            from backprop_backend.http_store import HttpStore
+            if self._sink is None or isinstance(self._sink, HttpStore):
                 error._backprop_init_transport_timeout = True
             raise
 
@@ -420,7 +423,7 @@ class Run:
         original = self.config._data
         object.__setattr__(self.config, "_data", references)
         try:
-            hydrated = hydrate_config(self, read_journal(self.sync_dir), self.sync_dir)
+            hydrated = hydrate_config(self, read_journal(self.sync_dir, sink=self._sink), self.sync_dir)
         except BaseException:
             object.__setattr__(self.config, "_data", original)
             raise
@@ -569,7 +572,7 @@ class Run:
         if locator is None:
             return value
         if self._sink is None:
-            raise Error("Config artifact URI lookup requires Foundry access; initialize online or pass a local Artifact object")
+            raise Error("Config artifact URI lookup requires backend access; initialize online or pass a local Artifact object")
         from .apis.public import Api
         api = Api._from_store(self._sink, entity=self.entity, project=self.project, config=self._deployment)
         def lookup():
@@ -852,7 +855,7 @@ class Run:
                 'timestamp': (self._last_event_time + timedelta(microseconds=1)).isoformat(),
                 'entity': self.entity, 'project': self.project, 'run_id': self.id,
                 'payload': {'step': self._step, 'metrics': values}}
-            correction = run_correction(self, [*read_journal(self._sync_dir), candidate])
+            correction = run_correction(self, [*read_journal(self._sync_dir, sink=self._sink), candidate])
             apply_group_summary(summary, correction)
             reducer = correction['reducer']
         summary_encoder = self._encoder()

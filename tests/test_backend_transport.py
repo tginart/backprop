@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from backprop import foundry as MODULE
 
@@ -69,7 +69,73 @@ class NativeStorageTests(unittest.TestCase):
             self.assertEqual(list(self.store.read_live_records()), [{"n": 0}, {"n": 3}, {"n": 9}])
         self.assertEqual(len(calls), 3)
 
+    def test_large_live_snapshot_uses_bounded_network_round_trips(self):
+        """
+        Purpose: Keep a realistic stream snapshot inside the default startup budget.
+        Input: A 38,900-record stream with sparse-offset-compatible paging.
+        Output: All records with at most forty live page requests.
+        """
+        from urllib.parse import parse_qs, urlsplit
+        calls = []
+        count = 38_900
+        def respond(path, *args, **kwargs):
+            if '/getEndOffsets' in path:
+                return {'0': str(count)}
+            query = parse_qs(urlsplit(path).query)
+            start = int(query.get('startOffset', ['0'])[0])
+            limit = int(query['limit'][0])
+            calls.append(start)
+            return [{'offset': str(index), 'value': {'n': index}}
+                    for index in range(start, min(start + limit, count))]
+        with patch.object(self.store, 'request', side_effect=respond):
+            rows = list(self.store.read_live_records())
+        self.assertEqual([row['n'] for row in rows], list(range(count)))
+        self.assertLessEqual(len(calls), 40)
+
+    def test_prefetch_uses_bounded_concurrent_reads(self):
+        """
+        Purpose: Prevent sequential network latency from exhausting the startup budget.
+        Input: Four independent pages that must overlap before they can complete.
+        Output: A complete ordered snapshot with four concurrent requests.
+        """
+        from threading import Barrier
+        from urllib.parse import parse_qs, urlsplit
+        barrier = Barrier(4)
+        def respond(path, *args, **kwargs):
+            if '/getEndOffsets' in path:
+                return {'0': '5000'}
+            query = parse_qs(urlsplit(path).query)
+            start = int(query.get('startOffset', ['0'])[0])
+            if start:
+                barrier.wait(timeout=3)
+            return [{'offset': str(value), 'value': {'n': value}}
+                    for value in range(start, start + 1000)]
+        with patch.object(self.store, 'request', side_effect=respond):
+            rows = list(self.store.read_live_records())
+        self.assertEqual([row['n'] for row in rows], list(range(5000)))
+
+    def test_parallel_prefetch_cannot_skip_valid_short_or_sparse_pages(self):
+        """
+        Purpose: Reject offset guesses as evidence that a prefix was consumed.
+        Input: Short pages, sparse offsets, overlapping prefetch, and a fixed end.
+        Output: Each snapshot record once in offset order.
+        """
+        from urllib.parse import parse_qs, urlsplit
+        values = [0, 1, 2, 4, 7, 8, 12, 19, 20, 29, 41, 59]
+        self.store._live_page_size = 10
+        def respond(path, *args, **kwargs):
+            if '/getEndOffsets' in path:
+                return {'0': '60'}
+            query = parse_qs(urlsplit(path).query)
+            start = int(query.get('startOffset', ['0'])[0])
+            return [{'offset': str(value), 'value': {'n': value}}
+                    for value in [value for value in values if value >= start][:2]]
+        with patch.object(self.store, 'request', side_effect=respond):
+            rows = list(self.store.read_live_records())
+        self.assertEqual([row['n'] for row in rows], values)
+
     def test_truncated_page_retries_same_offset_and_preserves_sparse_snapshot(self):
+        self.store._live_page_size = 100
         calls = []
         def respond(path, *args, **kwargs):
             from urllib.parse import parse_qs, urlsplit
@@ -89,6 +155,7 @@ class NativeStorageTests(unittest.TestCase):
         self.assertEqual(self.store._live_page_size, 25)
 
     def test_single_record_truncation_fails_without_skipping(self):
+        self.store._live_page_size = 100
         sizes = []
         def respond(path, *args, **kwargs):
             from urllib.parse import parse_qs, urlsplit
@@ -104,6 +171,7 @@ class NativeStorageTests(unittest.TestCase):
         self.assertEqual(sizes, [100, 50, 25, 12, 6, 3, 1])
 
     def test_other_failures_do_not_resize_or_skip_pages(self):
+        self.store._live_page_size = 100
         for error in (MODULE.FoundryError('timeout', retryable=True), MODULE.FoundryError('denied', status_code=403)):
             with patch.object(self.store, 'request', side_effect=[{'0': '1'}, error]) as request:
                 with self.assertRaises(MODULE.FoundryError) as raised:
@@ -148,6 +216,57 @@ class NativeStorageTests(unittest.TestCase):
             self.assertEqual(self.store.query_archive(project=malicious), [])
         self.assertNotIn(malicious, capture[0])
         self.assertIn(malicious.encode().hex(), capture[0])
+
+    def test_compressed_responses_preserve_decoded_json_and_retry_corrupt_bodies(self):
+        """
+        Purpose: Reduce Foundry transfer size without a different retry boundary.
+        Input: A gzip JSON response and a truncated gzip response.
+        Output: Exact JSON or a retryable truncated-response error after four attempts.
+        """
+        import gzip
+        payload = gzip.compress(b'{"value": "compressed"}')
+        def response(data):
+            value = MagicMock()
+            value.__enter__.return_value = value
+            value.headers = {'Content-Type': 'application/json', 'Content-Encoding': 'gzip'}
+            value.read.return_value = data
+            return value
+        with patch.object(self.store.opener, 'open', return_value=response(payload)) as opened:
+            self.assertEqual(self.store.request('/api/example'), {'value': 'compressed'})
+            self.assertEqual(opened.call_args.args[0].get_header('Accept-encoding'), 'gzip')
+        with patch.object(self.store.opener, 'open', side_effect=lambda *args, **kwargs: response(payload[:-4])) as opened, \
+                patch.object(MODULE.time, 'sleep'):
+            with self.assertRaises(MODULE.FoundryError) as raised:
+                self.store.request('/api/example', retry=True)
+            self.assertEqual(opened.call_count, 4)
+            self.assertTrue(raised.exception.response_truncated)
+
+    def test_compressed_error_body_preserves_status_name_and_credential_redaction(self):
+        """
+        Purpose: Preserve Foundry duplicate and authorization decisions with gzip diagnostics.
+        Input: A compressed structured HTTP error and a corrupt compressed denial.
+        Output: The original status and error name without a credential leak or false retry.
+        """
+        import gzip
+        import io
+        from urllib.error import HTTPError
+        body = gzip.compress(b'{"errorName":"FileAlreadyExists","message":"test-token"}')
+        error = HTTPError('https://example.test/api', 404, 'duplicate',
+                          {'Content-Encoding': 'gzip'}, io.BytesIO(body))
+        with patch.object(self.store.opener, 'open', side_effect=error):
+            with self.assertRaises(MODULE.FoundryError) as raised:
+                self.store.request('/api/example')
+        self.assertEqual(raised.exception.status_code, 404)
+        self.assertEqual(raised.exception.error_name, 'FileAlreadyExists')
+        self.assertNotIn('test-token', str(raised.exception))
+        error = HTTPError('https://example.test/api', 403, 'denied',
+                          {'Content-Encoding': 'gzip'}, io.BytesIO(body[:-4]))
+        with patch.object(self.store.opener, 'open', side_effect=error) as opened:
+            with self.assertRaises(MODULE.FoundryError) as denied:
+                self.store.request('/api/example', retry=True)
+        self.assertEqual(opened.call_count, 1)
+        self.assertEqual(denied.exception.status_code, 403)
+        self.assertFalse(denied.exception.retryable)
 
     def test_large_event_rejected_before_network_call(self):
         large = event("1")

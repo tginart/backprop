@@ -28,7 +28,7 @@ def inherit_visible_base(artifact, run):
     if run._sink is None:
         artifact._incremental_pending=True
         return
-    local=read_journal(run.sync_dir)
+    local=read_journal(run.sync_dir,sink=run._sink)
     remote=run._sink.read_events(entity=run.entity,project=run.project) if run._sink else []
     # A journal and stream can carry the same envelope with resolved file paths.
     # Prefer the local snapshot for those identities before canonical replay.

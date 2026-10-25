@@ -312,7 +312,7 @@ class ControlStoreTests(unittest.TestCase):
         self.store=FakeControlStore()
         self.scope={'project':"p'quoted",'entity':'e','run_id':'r','instance_id':'a'*32}
         source=type('Source',(),{'config':{'timeout':60},'token':'private'})()
-        with patch('backprop.foundry.FoundryStore', return_value=self.store):
+        with patch('backprop_backend.connection.create_store', return_value=self.store):
             self.reader=FoundryControlReader(source, **self.scope)
     def event(self, **changes):
         return {'schema_version':1,'event_id':'id','timestamp':'2026','type':'run_stop_request',

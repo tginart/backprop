@@ -33,6 +33,20 @@ async function browser(url = APP) {
   return {auth, memory, exchanges, replaced, location};
 }
 
+test('explicit local auth skips OAuth and preserves Foundry session storage', async () => {
+  const env = await browser('http://127.0.0.1:8765/');
+  env.memory.set('backprop.oauth.session', 'saved-foundry-session');
+  await env.auth.initAuth({backend: 'local', host: 'http://127.0.0.1:8765'});
+  assert.equal(env.auth.getAuthState().authenticated, true);
+  assert.equal(env.auth.getAuthState().canControlRuns, true);
+  assert.equal(await env.auth.getAccessToken(), null);
+  await env.auth.login({allowRunControl: true});
+  env.auth.logout();
+  assert.equal(env.exchanges.length, 0);
+  assert.equal(env.memory.get('backprop.oauth.session'), 'saved-foundry-session');
+  assert.equal(env.location.assigned, undefined);
+});
+
 test('OAuth preserves the exact local run link after a validated PKCE callback', async () => {
   const original = `${APP}?project=demo-user%2Fsynthetic-project&run=run-123#metrics`;
   const env = await browser(original);

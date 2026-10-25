@@ -1,0 +1,19 @@
+{
+  "foundry": {
+    "backend": "foundry",
+    "host": "https://foundry.example",
+    "stream_dataset_rid": "ri.foundry.main.dataset.events",
+    "media_dataset_rid": "ri.foundry.main.dataset.media",
+    "branch": "master",
+    "client_id": "test-public-client",
+    "app_url": "https://backprop.example/"
+  },
+  "local": {
+    "backend": "local",
+    "host": "http://127.0.0.1:8765",
+    "stream_dataset_rid": "ri.foundry.local.dataset.events",
+    "media_dataset_rid": "ri.foundry.local.dataset.media",
+    "branch": "master",
+    "app_url": "http://127.0.0.1:8765/"
+  }
+}

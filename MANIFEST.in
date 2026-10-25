@@ -1,9 +1,11 @@
 include README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md
 recursive-include licenses *
+include tests/fixtures/backend_connections.json
+include sdk/backprop_backend/__init__.py
 recursive-include sdk/backprop *.json
-prune tests
-prune web
-prune docs
-prune deploy
-prune backend
-prune examples
+include backend/*.py backend/dashboard_assets.json
+recursive-include backend/local *.py
+recursive-include backend/foundry *.py
+recursive-include web/backends *.js
+exclude web/config.json
+exclude web/renderer-package-lock.json

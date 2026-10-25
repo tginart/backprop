@@ -1,4 +1,4 @@
-"""Editable experiment API using Foundry's stream/archive and file dataset.
+"""Editable experiment API using the configured backend.
 
 Architecture: resolve project/run paths -> scoped event reads -> event-backed Python
 views. Cached single-run snapshots refresh through load(force=True) or Api.flush.
@@ -16,7 +16,8 @@ import math
 import os
 from urllib.parse import parse_qs, urlsplit
 
-from ...foundry import FoundryError, FoundryStore
+from backprop_backend.http_store import BackendError
+from ...transport import native_store
 from ...errors import CommError
 from ...artifact_events import iter_artifact_events
 from ...artifact_updates import artifact_views
@@ -29,21 +30,21 @@ from .query import matches, ordered
 from .runs import Run, RunNotFoundError, Runs
 
 
-def _is_foundry_transport_error(error):
+def _is_backend_transport_error(error):
     """Map the pinned existence-check transport distinction to Foundry errors.
 
     Main callers: artifact_exists and artifact_collection_exists. These public
     methods intentionally return False for normalized validation and response
     failures, but must propagate a missing response or an HTTP 408/504 timeout.
-    FoundryError retains the response status without parsing sensitive messages.
+    BackendError retains the response status without parsing sensitive messages.
     Other Error subclasses keep the pinned normalizer's existing behavior.
     """
-    cause = error if isinstance(error, FoundryError) else error.exc
-    return isinstance(cause, FoundryError) and cause.status_code in {None, 408, 504}
+    cause = error if isinstance(error, BackendError) else error.exc
+    return isinstance(cause, BackendError) and cause.status_code in {None, 408, 504}
 
 
 class Api:
-    """Query experiment data with a Foundry token and Backprop deployment config."""
+    """Query experiment data with a Backprop connection config."""
 
     _HTTP_TIMEOUT = int(os.environ.get("WANDB_HTTP_TIMEOUT", 19))
 
@@ -60,8 +61,8 @@ class Api:
         fields configure this Foundry reader.
         """
         from ...run import resolve_settings
-        from ...login_session import (authenticate_candidate, current_init_session,
-                                     persist_candidate, remember_init_session)
+        from backprop_backend.connection import (authenticate_candidate, current_init_session,
+                                     persist_candidate, remember_init_session, configure_settings)
         from ...errors import AuthenticationError, UsageError
         from ...runtime import bounded_call
         overrides = dict(overrides or {})
@@ -103,9 +104,9 @@ class Api:
             candidate = authenticate_candidate(key=api_key or None, host=host, prompt=True,
                                                verify=False, timeout=None, settings=selected,
                                                relogin=False, force=True, raise_prompt_timeout=True,
-                                               load_config=lambda: self._config, native_store=FoundryStore,
+                                               load_config=lambda: self._config, native_store=native_store,
                                                session_key=session.token if session else None,
-                                               session_host=session.host if session else None)
+                                               session_host=session.host if session else None, config=self._config)
         except EOFError:
             raise KeyboardInterrupt() from None
         if candidate.mode != "online":
@@ -113,14 +114,21 @@ class Api:
         self._config["host"] = candidate.host or host
         self.settings["base_url"] = self._config["host"]
         self.api_key = candidate.token
-        self._store = FoundryStore(self._config, token=self.api_key)
+        def connect():
+            store = native_store(self._config, token=self.api_key)
+            try:
+                store.verify_credentials()
+            except Exception as error:
+                raise AuthenticationError("Foundry credentials could not be verified for Api inspection") from error
+            return store
+
         try:
             # A zero/negative public timeout expires authentication; it does
             # not mean the unbounded wait used by some logging operations.
             if self._timeout <= 0:
                 raise TimeoutError("Api authentication deadline has already expired")
-            bounded_call(self._store.verify_credentials, self._timeout, "Api authentication")
-        except Exception as error:
+            self._store = bounded_call(connect, self._timeout, "Api authentication")
+        except TimeoutError as error:
             raise AuthenticationError("Foundry credentials could not be verified for Api inspection") from error
         if candidate.source == "prompt":
             persist_candidate(candidate, selected)
@@ -129,8 +137,7 @@ class Api:
             # Only authentication belongs to the process. Reader resolution
             # may include newer environment defaults or local proxy overrides.
             defaults = (_setup_settings if _setup_settings is not None else selected).model_copy(deep=True)
-            defaults.api_key = candidate.token
-            defaults.base_url = candidate.host
+            configure_settings(defaults, candidate)
             _publish_login_defaults(defaults)
             remember_init_session(candidate)
         self._cache = {}
@@ -239,7 +246,7 @@ class Api:
             run.define_metric("global_step")
             run.define_metric("*", step_metric="global_step", step_sync=True)
             sync(run, root_dir)
-        events=[run._journal._resolve(event) for event in read_journal(run.sync_dir)]
+        events=[run._journal._resolve(event) for event in read_journal(run.sync_dir, sink=run._sink)]
         result=Run._from_events(self,entity,project,run_id,events)
         self._cache[("run",entity,project,run_id)]=result
         return result
@@ -347,7 +354,7 @@ class Api:
         """
         try: self.artifact(name, type); return True
         except CommError as error:
-            if _is_foundry_transport_error(error): raise
+            if _is_backend_transport_error(error): raise
             return False
 
     @normalize_exceptions
@@ -400,7 +407,7 @@ class Api:
         """Use the same boolean/error rules as artifact_exists."""
         try: self.artifact_collection(type, name); return True
         except CommError as error:
-            if _is_foundry_transport_error(error): raise
+            if _is_backend_transport_error(error): raise
             return False
 
     @normalize_exceptions

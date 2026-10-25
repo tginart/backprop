@@ -1,4 +1,4 @@
-"""W&B-shaped logging over Foundry with stable process-local import aliases.
+"""W&B-shaped logging over a configured backend with stable process-local import aliases.
 
 Architecture: setup resolves process defaults -> init chooses an active-run
 policy -> each Run owns persistence -> finish removes global bindings. Public
@@ -105,7 +105,7 @@ def init(entity=None, project=None, dir=None, id=None, name=None, notes=None, ta
         selected.update_from_dict({"resume_from": resume_from, "fork_from": fork_from})
     prepared_auth = None
     if _sink is None and selected.mode in {"online", "shared", "run"}:
-        from .login_session import prepare_init_candidate
+        from backprop_backend.connection import prepare_init_candidate
         from importlib import import_module
         runtime = import_module('.run', __name__)
         _deployment, prepared_auth = prepare_init_candidate(selected, settings, _deployment,
@@ -195,10 +195,10 @@ def _construct_init_run(settings, **options):
                        'Consider increasing the init_timeout setting:\n'
                        '  wandb.init(settings=wandb.Settings(init_timeout=...))')
             raise CommError(message, exc=error) from error
-        from .foundry import FoundryError
+        from backprop_backend.http_store import BackendError
         cause, seen = error, set()
         while cause is not None and id(cause) not in seen:
-            if isinstance(cause, FoundryError):
+            if isinstance(cause, BackendError):
                 raise CommError(str(error), exc=error) from error
             seen.add(id(cause))
             cause = cause.__cause__
@@ -251,7 +251,7 @@ def setup(settings=None):
     _setup_settings = resolve_settings(settings)
     values = settings._explicit if isinstance(settings, Settings) else (settings or {})
     if 'api_key' in values and _setup_settings.api_key:
-        from .login_session import clear_init_session
+        from backprop_backend.connection import clear_init_session
         clear_init_session()
     return _Setup(_setup_settings)
 
@@ -290,7 +290,7 @@ def teardown(exit_code=None):
             # finish_timeout_raises, because teardown also runs during atexit.
             pass
     _setup_settings = None
-    from .login_session import clear_init_session
+    from backprop_backend.connection import clear_init_session
     clear_init_session()
     gym_module = sys.modules.get("backprop.integration.gym")
     if gym_module is not None:
@@ -299,7 +299,7 @@ def teardown(exit_code=None):
 
 def login(key=None, relogin=None, host=None, force=None, timeout=None, verify=True,
           referrer=None, prompt=True, anonymous=_UNSET):
-    """Select Foundry credentials and persist explicit or prompted tokens.
+    """Select backend credentials and persist explicit or prompted tokens.
 
     Main callers: SDK clients before init. Verification precedes host-scoped
     private-cache and session publication. W&B credential files are not used.
@@ -313,7 +313,7 @@ def login(key=None, relogin=None, host=None, force=None, timeout=None, verify=Tr
     selected = resolve_settings()
     if selected.mode in {"disabled", "offline", "dryrun"}:
         return False
-    from .login_session import authenticate_candidate, persist_candidate, remember_init_session
+    from backprop_backend.connection import authenticate_candidate, persist_candidate, remember_init_session, configure_settings, publish_candidate
     candidate = authenticate_candidate(key=key, host=host, prompt=prompt, verify=verify,
                                        timeout=timeout, settings=selected, relogin=relogin, force=force, referrer=referrer,
                                        load_config=load_config, native_store=native_store)
@@ -326,13 +326,9 @@ def login(key=None, relogin=None, host=None, force=None, timeout=None, verify=Tr
         defaults.mode = candidate.mode
         _publish_login_defaults(defaults)
         return False
-    defaults.api_key = candidate.token
-    if candidate.host is not None:
-        defaults.base_url = candidate.host
+    configure_settings(defaults, candidate)
     persist_candidate(candidate, selected)
-    os.environ["BACKPROP_TOKEN"] = candidate.token
-    if candidate.host is not None:
-        os.environ["BACKPROP_HOST"] = candidate.host
+    publish_candidate(candidate)
     _publish_login_defaults(defaults)
     remember_init_session(candidate)
     return True

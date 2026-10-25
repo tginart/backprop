@@ -201,7 +201,7 @@ def finish(run, artifact_or_path, name=None, type=None, aliases=None, distribute
         preview={'schema_version':1,'event_id':'finalization-preview','type':'artifact',
             'run_id':run.id,'entity':run.entity,'project':run.project,
             'timestamp':payload['created_at'],'payload':payload}
-        visible={e['event_id']:e for e in [*run._sink.read_events(entity=run.entity,project=run.project),*read_journal(run.sync_dir)]}
+        visible={e['event_id']:e for e in [*run._sink.read_events(entity=run.entity,project=run.project),*read_journal(run.sync_dir,sink=run._sink)]}
         preflight(run._sink,preview,list(visible.values()))
     run._emit('artifact',payload)
     target._id=payload['artifact_id'];target._distributed_pending=True;target._committed=False

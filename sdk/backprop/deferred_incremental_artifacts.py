@@ -3,7 +3,7 @@
 Architecture: immutable delta or distributed intent in the original journal ->
 first online sync selects the visible base or contributed parts -> atomic shared file and local cache -> projected event and
 reference stream -> ordinary uploads/acknowledgements. A per-artifact OS lock
-serializes local preparation; Foundry APPEND chooses one winner across machines.
+serializes local preparation; The backend claim chooses one winner across machines.
 Retry reuses the cached base, timestamps
 and content version. Main callers: Journal, artifact handoff and artifact reads.
 No pending delta is published as a complete remote artifact.
@@ -31,8 +31,11 @@ def _key(entity, project, identity):
     return hashlib.sha256(json.dumps([entity,project,identity],separators=(',',':')).encode()).hexdigest()
 
 
-def _path(directory, entity, project, identity):
-    return Path(directory)/FOLDER/(_key(entity,project,identity)+'.json')
+def _path(directory, entity, project, identity, *, namespace=None):
+    folder = Path(directory) / FOLDER
+    if namespace:
+        folder = folder / namespace
+    return folder / (_key(entity, project, identity) + '.json')
 
 
 def _identity(event):
@@ -43,9 +46,9 @@ def _fingerprint(event):
     return hashlib.sha256(manifest_identity(event).encode()).hexdigest()
 
 
-def _load(directory, event):
+def _load(directory, event, *, namespace=None):
     """Validate a saved materialization against this immutable delta."""
-    path=_path(directory,*_identity(event))
+    path=_path(directory,*_identity(event),namespace=namespace)
     if not path.exists():return None
     value=json.loads(path.read_text())
     if value.get('source_fingerprint')!=_fingerprint(event):
@@ -141,9 +144,10 @@ def _freeze(journal,event,visible):
     Candidate files upload first, so a winning resolution contains no private
     paths. A lost claim response or local process crash reuses the remote winner.
     """
-    path=_path(journal.directory,*_identity(event));path.parent.mkdir(parents=True,exist_ok=True)
+    namespace = getattr(journal.sink, 'ack_namespace', None)
+    path=_path(journal.directory,*_identity(event),namespace=namespace);path.parent.mkdir(parents=True,exist_ok=True)
     with path.with_suffix('.lock').open('a+b') as lock,exclusive_lock(lock):
-        saved=_load(journal.directory,event)
+        saved=_load(journal.directory,event,namespace=namespace)
         if saved is not None and saved.get('shared_resolution'):
             return saved
         key=_key(*_identity(event))
@@ -225,13 +229,18 @@ def _project(events, resolved):
     return result
 
 
-def cached_events(directory, events):
-    """Expose materialized local reads without credentials or remote calls."""
+def cached_events(directory, events, *, namespace=None):
+    """
+    Purpose: Project artifact records from one installation's durable cache.
+    Input: The original records and the selected acknowledgement namespace.
+    Output: Materialized records without credentials or remote requests.
+    Note: The default namespace preserves existing Foundry cache behavior.
+    """
     if not (Path(directory)/FOLDER).exists():return events
     resolved={}
     for event in events:
         if event['type']=='artifact' and pending(event.get('payload',{})):
-            saved=_load(directory,event)
+            saved=_load(directory,event,namespace=namespace)
             if saved is not None:resolved[_identity(event)]=saved
     return _project(events,resolved) if resolved else events
 
@@ -244,9 +253,10 @@ def prepare(journal, events, *, through_artifact=None):
     while selecting an uncached base. Failures leave the original queue intact.
     """
     resolved={};remote={};prefix=[]
+    namespace = getattr(journal.sink, 'ack_namespace', None)
     for event in events:
         if event['type']=='artifact' and pending(event.get('payload',{})):
-            saved=_load(journal.directory,event)
+            saved=_load(journal.directory,event,namespace=namespace)
             if saved is None or not saved.get('shared_resolution'):
                 def visible():
                     scope=event.get('entity',''),event['project']
@@ -265,12 +275,12 @@ def prepare_source(artifact, directory, sink):
     """Freeze an offline artifact before it is copied into an online journal."""
     from .transport import Journal, read_journal
     journal=Journal(directory,sink)
-    events=read_journal(directory)
+    events=read_journal(directory,project_artifacts=False)
     prepare(journal,events,through_artifact=artifact._id)
-    refresh(artifact)
+    refresh(artifact,sink=sink)
 
 
-def refresh(artifact):
+def refresh(artifact, *, sink=None):
     """Refresh a pending handle after this or another process froze its base.
 
     Main callers: artifact state/version/manifest access. Existing delta entry
@@ -281,14 +291,17 @@ def refresh(artifact):
     owner=getattr(artifact,'_owner',None);journal=getattr(owner,'_journal',None)
     directory=journal.directory if journal else artifact._store.directory if isinstance(artifact._store,JournalArtifactStore) else None
     if directory is None:return
-    path=_path(directory,artifact.entity,artifact.project,artifact._id)
+    if sink is None:
+        sink = journal.sink if journal else artifact._store.remote
+    namespace = getattr(sink, 'ack_namespace', None)
+    path=_path(directory,artifact.entity,artifact.project,artifact._id,namespace=namespace)
     if not path.exists():return
     from .transport import read_journal
     source=next((event for event in read_journal(directory,project_artifacts=False)
         if event['type']=='artifact' and _identity(event)==(artifact.entity,artifact.project,artifact._id)),None)
     if source is None:
         raise ValueError('Materialized artifact has no matching durable source intent')
-    saved=_load(directory,source);payload=saved['payload']
+    saved=_load(directory,source,namespace=namespace);payload=saved['payload']
     if saved['source_digest']!=artifact._stored_digest or saved['identity']!=[artifact.entity,artifact.project,artifact._id]:
         raise ValueError('Materialized artifact handle conflicts with its queued delta')
     from dataclasses import replace
@@ -343,14 +356,15 @@ def restored_publication_status(artifact):
     if not (directory/'events.jsonl').is_file():
         return None
     branch=read_local_branch(directory)
-    journal=Journal(directory,_branch_prepared=branch is not None)
+    journal=Journal(directory,artifact._store.remote,_branch_prepared=branch is not None)
     acknowledged=journal.acknowledged_count()
     if branch is None:
         with journal.event_path.open(encoding='utf-8') as source:
             events=[json.loads(line) for line in source if line.strip()]
     else:
         events=branch
-    for position,event in enumerate(cached_events(directory,events),1):
+    namespace = getattr(artifact._store.remote, 'ack_namespace', None)
+    for position,event in enumerate(cached_events(directory,events,namespace=namespace),1):
         for manifest in iter_artifact_events([event]):
             if (manifest.get('entity','')==artifact.entity and manifest['project']==artifact.project
                     and manifest['payload'].get('artifact_id')==artifact._id):

@@ -159,7 +159,7 @@ print('restart-ok')
                 run = backprop.init(project='credentials', settings=settings, dir=self.directory.name, _deployment=CONFIG)
                 self.assertEqual(factory.call_args.kwargs['token'], key or 'cached-fixture')
                 run.log({'loss': 1}); run.finish()
-        with patch.object(public, 'load_config', return_value=CONFIG), patch.object(public, 'FoundryStore', return_value=sink) as factory, patch.object(sink, 'verify_credentials', return_value=True, create=True) as verify:
+        with patch.object(public, 'load_config', return_value=CONFIG), patch.object(public, 'native_store', return_value=sink) as factory, patch.object(sink, 'verify_credentials', return_value=True, create=True) as verify:
             # Public init selected the latest run key for this host. Api reuses
             # that session ahead of disk credentials, as pinned W&B does.
             for key in [None, 'explicit-api-fixture', None]:

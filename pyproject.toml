@@ -40,10 +40,6 @@ azure = ["azure-storage-blob", "azure-identity"]
 [project.scripts]
 backprop = "backprop.__main__:main"
 
-[tool.setuptools.packages.find]
-where = ["sdk"]
-include = ["backprop*"]
-
 [tool.setuptools.package-data]
 backprop = ["integration/upstream-sources.json"]
 

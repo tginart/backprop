@@ -7,10 +7,11 @@ from pathlib import Path
 import argparse, hashlib, io, json, re, tarfile, zipfile
 
 PUBLIC_DOCUMENTATION = frozenset({
- 'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'RELEASE_NOTES.md',
+ 'README.md', 'backend/README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'RELEASE_NOTES.md',
  'THIRD_PARTY_NOTICES.md', 'docs/README.md', 'docs/compatibility.md',
  'docs/dependency-security.md', 'docs/distributed-logging.md',
  'docs/foundry-setup.md', 'docs/interface.md', 'docs/python-api-support.md',
+ 'docs/local-backend.md', 'docs/backend-verification.md',
  'docs/updates.md', 'examples/README.md', 'tests/fixtures/MAP-FIXTURES.md',
 })
 

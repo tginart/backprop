@@ -12,7 +12,7 @@ const row = offset => ({offset:String(offset), value:{schema_version:1,event_id:
   project:'p',entity:'e',event_type:'history',timestamp:'2026-10-06T00:00:00Z',payload:'{"metrics":{"loss":0.2}}'}});
 let sequence = 0;
 
-async function fixture(callback) {
+async function fixture(callback, {end = '10'} = {}) {
   const prior = {fetch:globalThis.fetch, storage:globalThis.sessionStorage, location:globalThis.location};
   globalThis.sessionStorage = {getItem:key => key === 'backprop.oauth.session' ?
     JSON.stringify({accessToken:'fixture', expiresAt:Date.now()+3600000}) : null, setItem(){}, removeItem(){}};
@@ -22,7 +22,7 @@ async function fixture(callback) {
     const url = new URL(input), operation = url.pathname.split('/').at(-1);
     if (operation === 'execute') return Response.json({type:'succeeded',queryId:'test'});
     if (operation === 'getResults') return new Response('schema_version,event_id,run_id,project,entity,event_type,timestamp,payload\n');
-    if (operation === 'getEndOffsets') return Response.json({'0':'10'});
+    if (operation === 'getEndOffsets') return Response.json({'0':end});
     if (operation === 'getRecords') return callback(url);
     throw Error('Unexpected operation ' + operation);
   };
@@ -45,7 +45,7 @@ for (const kind of ['body-read','incomplete-json']) {
     try {
       const result=await state.api.loadWorkspace();
       assert.deepEqual(result.events.map(event=>event.event_id),['3','9']);
-      assert.deepEqual(calls,[[null,100],['4',100],['4',50],['4',25]]);
+      assert.deepEqual(calls,[[null,1000],['4',1000],['4',500],['4',250],['4',125],['4',62],['4',31],['4',15]]);
     } finally {state.restore();}
   });
 }
@@ -55,7 +55,7 @@ test('An unreadable single record still fails after bounded page reductions', as
   const state=await fixture(url=>{calls.push([url.searchParams.get('startOffset'),Number(url.searchParams.get('limit'))]);return new Response('[');});
   try {
     await assert.rejects(state.api.loadWorkspace(),SyntaxError);
-    assert.deepEqual(calls.map(item=>item[1]),[100,50,25,12,6,3,1]);
+    assert.deepEqual(calls.map(item=>item[1]),[1000,500,250,125,62,31,15,7,3,1]);
     assert.ok(calls.every(item=>item[0]===null));
   } finally {state.restore();}
 });
@@ -73,3 +73,19 @@ for (const kind of ['denied','connect','abort']) {
     finally {state.restore();}
   });
 }
+
+
+test('A realistic large snapshot does not require hundreds of network round trips', async () => {
+    let calls = 0;
+    const count = 38_900;
+    const state = await fixture(url => {
+        calls++;
+        const start = Number(url.searchParams.get('startOffset') || 0);
+        const limit = Number(url.searchParams.get('limit'));
+        return Response.json(Array.from({length: Math.min(limit, count - start)}, (_, index) => row(start + index)));
+    }, {end: String(count)});
+    try {
+        assert.equal((await state.api.loadWorkspace()).events.length, count);
+        assert(calls <= 40);
+    } finally {state.restore();}
+});
