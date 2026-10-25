@@ -1,6 +1,6 @@
 # Python API support
 
-This guide describes Backprop **0.1.1**: experiment logging, distributed logging,
+This guide describes Backprop **0.1.2**: experiment logging, distributed logging,
 artifacts and experiment inspection through the W&B **0.30.0** Python API. It lists
 supported names, Foundry differences and runtime requirements.
 

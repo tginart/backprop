@@ -34,13 +34,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 14845,
-      "sha256": "785c09824302a78c5fcaa2549a076ade31046aeb69e1ad37cf851d4cd7d5f322"
+      "bytes": 14877,
+      "sha256": "32167b4fe9a6673b9eca35ea83a78a86b92b22f0e04f764460927296428337e1"
     },
     {
       "path": "RELEASE_NOTES.md",
-      "bytes": 1996,
-      "sha256": "f9a73dd6c179aafa6ae2880ce756342a5b7fb3a718c68f9d19a0778e02945ba4"
+      "bytes": 3431,
+      "sha256": "8afc4aa8c676832b38a4242974f511e78b662cec57e22794324bdba3a9bc5ed7"
     },
     {
       "path": "SECURITY.md",
@@ -255,7 +255,7 @@
     {
       "path": "docs/README.md",
       "bytes": 2077,
-      "sha256": "63be51bce96344d03bc664db6837cf7f54e4455d3e2f4fa89e9d64650487fc78"
+      "sha256": "861fc4922fd789ad02dde68cc96ded5a67a5fc1a123881313de12ca5bdb2df08"
     },
     {
       "path": "docs/backend-verification.md",
@@ -285,22 +285,22 @@
     {
       "path": "docs/interface.md",
       "bytes": 3822,
-      "sha256": "26fe693569b44a9d6df106f5d40c38d386a07b65481a1baf9961a50613c06bb1"
+      "sha256": "6fecd651dcc28ace6a6f25c182b36fd7b9016225b030746a5074080c447cba5b"
     },
     {
       "path": "docs/local-backend.md",
-      "bytes": 8712,
-      "sha256": "11be2af004bc4c95597f07da2356a950608e18321071fb9e332961aa2634b34b"
+      "bytes": 8572,
+      "sha256": "a4ef7f772e52714d8e3108a9f3bf5fcb976a7916dc163ebdd3811aaf22133378"
     },
     {
       "path": "docs/python-api-support.md",
       "bytes": 33874,
-      "sha256": "7491b71885486b670d280dc7f33c07d28f6f88265db02792484fa0568b93200c"
+      "sha256": "47fa67dde0cc505961cd6fad96a31f98d1a68d7ea5559d54dea000c958b2bee9"
     },
     {
       "path": "docs/updates.md",
       "bytes": 2258,
-      "sha256": "ca44fe187df79e4fe2ba5fdf311f7513f64d52acc1de4194e1f0f9f541e91943"
+      "sha256": "99dd5b0c07c1684f31eda10ae24c067f1551a58aeaaec17bcbaf198700e34d4e"
     },
     {
       "path": "examples/README.md",
@@ -370,12 +370,12 @@
     {
       "path": "pyproject.toml",
       "bytes": 1893,
-      "sha256": "81a7ba08ba713791c1d9e7169108fb4d269f19cfb508b9c8bdf778528314a945"
+      "sha256": "70b0f497641f4289b7d8953d85b09243fd97960e1617c86b8b253684efe12d59"
     },
     {
       "path": "sdk/backprop/__init__.py",
       "bytes": 21100,
-      "sha256": "e3164fd94a78a4838bd863837411a0c8ea6deb3ccbfe9e0d4124b9877820a928"
+      "sha256": "533cc707d15c5045515d1e8f90ea0c7dcd1bec822ab9583e5ab3c7e2c0f9b6ce"
     },
     {
       "path": "sdk/backprop/__main__.py",
@@ -3655,7 +3655,7 @@
     {
       "path": "web/backends/foundry.js",
       "bytes": 10972,
-      "sha256": "c64baa3b03c05d932bdf6706d9d967796348292055e5eea7a1f5488585d4500d"
+      "sha256": "c6cc0583e38580603d667c5d9639aaeb4ba82df54fd7953470d7d5fdf7c9bc15"
     },
     {
       "path": "web/backends/http.js",

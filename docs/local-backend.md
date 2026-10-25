@@ -28,12 +28,10 @@ loads the shared implementation from `backend/`.
 Install the Backprop wheel in your training environment. A source checkout also
 works with `python -m pip install -e .`. Wheels and source distributions include
 the dashboard; the installed CLI needs no checkout, Node.js, or database service.
-Before a release, build the feature wheel from this checkout with
-`python -m pip wheel . --no-deps --wheel-dir dist`. Copy that wheel to the training
-machine and install it with `python -m pip install --force-reinstall /path/to/backprop_foundry-*.whl`.
-The existing public `v0.1.1` release predates the local backend.
+Local mode is included in Backprop 0.1.2. Install the release and start the server:
 
 ```bash
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
 backprop serve ~/backprop-data
 ```
 

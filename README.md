@@ -28,15 +28,16 @@ charts](assets/images/run-details.png)
 
 </details>
 
-## Local backend (from source)
+## Local backend
 
-Install this source checkout to use the local backend. The `v0.1.1` release predates
-this feature; its Foundry setup remains available below.
+Install Backprop 0.1.2 in your training environment:
 
 ```bash
-python -m pip install .
-python examples/local_smoke.py
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
 ```
+
+For a complete demo from this release's source checkout, run
+`python examples/local_smoke.py`.
 
 The smoke demo opens the local dashboard, records live metrics, a table and a
 Plotly chart, and verifies an artifact download. The dashboard stays up afterward;
@@ -58,18 +59,18 @@ See [local setup, journal import, and backup/restore](docs/local-backend.md) and
 
 ## Quick Start
 
-Requires Python 3.10 or newer. Install Backprop 0.1.1 in the environment that runs your
+Requires Python 3.10 or newer. Install Backprop 0.1.2 in the environment that runs your
 training code:
 
 ```bash
-python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
 ```
 
 The Python package contains the SDK. Deploying the browser app requires a source
 checkout:
 
 ```bash
-git clone --branch v0.1.1 https://github.com/tginart/backprop.git
+git clone --branch v0.1.2 https://github.com/tginart/backprop.git
 cd backprop
 ```
 
@@ -185,7 +186,7 @@ shared-writer behavior.
 Use the runs sidebar to choose which experiments appear on charts. Expand the runs table
 to filter, group and sort runs, or open a run to inspect its Charts, Overview, Logs,
 Files and Artifacts. Browsing choices are remembered locally. Custom panels, layout
-editing and named/shared workspaces are not available in 0.1.1; the [interface
+editing and named/shared workspaces are not available in 0.1.2; the [interface
 guide](docs/interface.md) describes current behavior.
 
 ### Installation settings

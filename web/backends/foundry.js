@@ -185,7 +185,7 @@ export function createAdapter() {
         validateConfig, requestError, resolveWorkspaceIdentity, presentation: {
         label: 'Foundry', connection: 'Connected to Foundry', canSignOut: true,
         footer: 'Built on Foundry', source: 'Foundry stream + durable archive',
-        installCommand: "python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'",
+        installCommand: "python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'",
         setupTitle: 'Configure your Foundry connection',
         setupDescription: 'Save the connection file and keep your token in the environment.',
         environment: 'export BACKPROP_CONFIG="/path/to/backprop-config.json"\nexport FOUNDRY_TOKEN="<your Foundry token>"',

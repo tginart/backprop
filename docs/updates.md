@@ -4,18 +4,18 @@ Keep the SDK package, source reference, website ZIP and SHA-256 hashes for each
 installed version. Back up your deployment config and state privately; they contain the
 resource bindings needed to restore the installation.
 
-Release tags such as `v0.1.1` identify the SDK and browser source shipped together. The
-Python package and `backprop.__version__` use `0.1.1`. Foundry website versions are
+Release tags such as `v0.1.2` identify the SDK and browser source shipped together. The
+Python package and `backprop.__version__` use `0.1.2`. Foundry website versions are
 deployment identifiers and can differ from the SDK version. Each website upload needs a
 new, unused version.
 
 ## Update the SDK
 
 Finish active writers and preserve their offline journals. Install the target release in
-your training environment. For example, to install 0.1.1:
+your training environment. For example, to install 0.1.2:
 
 ```bash
-python -m pip install --upgrade 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'
+python -m pip install --upgrade 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
 python -m backprop --help
 ```
 

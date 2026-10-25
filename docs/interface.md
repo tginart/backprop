@@ -26,7 +26,7 @@ table. These are views of one project, not separate stores.
 
 Run visibility, filters and other exploration preferences belong to **this browser**.
 Custom panels, layout editing, named/shared workspaces, remote autosave and undo/redo
-are not available in 0.1.1.
+are not available in 0.1.2.
 
 ## Inspect logged values
 
