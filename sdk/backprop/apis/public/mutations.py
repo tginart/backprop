@@ -64,7 +64,7 @@ class MutationWriter:
 
     def published_events(self):
         from ...transport import read_journal
-        return [self._journal._resolve(event) for event in read_journal(self._journal.directory)]
+        return [self._journal._resolve(event) for event in read_journal(self._journal.directory, sink=self._sink)]
 
     def flush(self):
         if self._pending:

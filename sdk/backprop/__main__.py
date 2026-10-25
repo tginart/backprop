@@ -1,9 +1,8 @@
-"""Scoped launch and offline synchronization without changing training code.
-
-Architecture: CLI parses an explicit action -> run injects the compatibility
-module only in this process -> the original Python entry point runs normally.
-Sync replays one durable run queue using its stable event IDs.
-Run training scripts with process-scoped W&B import compatibility.
+"""
+Purpose: Provide launch, synchronization, import, and local dashboard commands.
+Input: CLI arguments and an optional connection configuration.
+Output: A command result or a local dashboard server.
+Note: The launch command changes import aliases only in its own process.
 """
 import argparse
 import os
@@ -15,16 +14,25 @@ import backprop
 from .transport import load_config
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> None:
+    """
+    Purpose: Dispatch one explicit CLI action without a global import alias.
+    Input: Optional command arguments, or the process argument list.
+    Output: A completed command or a local server until the user stops it.
+    """
     parser = argparse.ArgumentParser(prog="backprop")
     commands = parser.add_subparsers(dest="command", required=True)
     sync_parser = commands.add_parser("sync", help="Upload one offline run directory")
     sync_parser.add_argument("directory")
     sync_parser.add_argument("--config")
+    from backprop_backend.cli import add_commands, dispatch
+    add_commands(commands)
     run_parser = commands.add_parser("run", help="Run Python with import wandb redirected to Backprop")
     run_parser.add_argument("--high-command", action="store_true", help="Enable High Command's W&B credential readiness gate")
     run_parser.add_argument("target", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if dispatch(args):
+        return
     if args.command == "sync":
         count = backprop.sync(args.directory, config=load_config(args.config))
         print(f"Backprop synced {count} events")
@@ -38,7 +46,7 @@ def main(argv=None):
         # High Command checks this variable before importing its logging module.
         # This sentinel is not an authentication token and is never transmitted.
         os.environ["WANDB_API_KEY"] = "backprop-foundry-readiness-sentinel"
-        print("Backprop: High Command readiness shim enabled; Foundry credentials are used for logging.", file=sys.stderr)
+        print("Backprop: High Command readiness shim enabled; configured backend credentials are used for logging.", file=sys.stderr)
     from .compatibility import install_wandb_aliases
     install_wandb_aliases()
     try:

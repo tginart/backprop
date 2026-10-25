@@ -47,7 +47,8 @@ class DebugLogs:
         self._closed = False
         values = [self.settings.api_key, getattr(run._sink, "token", None)]
         values.extend((self.settings.azure_account_url_to_access_key or {}).values())
-        values.extend(os.environ.get(name) for name in ("FOUNDRY_TOKEN", "BACKPROP_TOKEN", "WANDB_API_KEY"))
+        from backprop_backend.connection import credential_values
+        values.extend(credential_values())
         self._secrets = sorted({value for value in values if isinstance(value, str) and value}, key=len, reverse=True)
 
     def start(self):

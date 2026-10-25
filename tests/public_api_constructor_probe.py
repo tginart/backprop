@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory() as directory:
                 if SCENARIO in SESSION_SCENARIOS: trace[-1]['token_source'] = token_source(token)
             def verify_credentials(self): return verify()
     with ExitStack() as stack:
-        stack.enter_context(patch.object(public, 'ServiceApi' if REFERENCE else 'FoundryStore', Service))
+        stack.enter_context(patch.object(public, 'ServiceApi' if REFERENCE else 'native_store', Service))
         try:
             if SCENARIO in API_SESSION_SCENARIOS:
                 # A successful implicit Api publishes its initial environment

@@ -1,11 +1,11 @@
-"""Durable event journal with a small native-Foundry transport boundary.
+"""Durable event journal with a small backend transport boundary.
 
 Architecture: append a complete JSON event locally -> stage referenced files ->
 publish a batch -> atomically advance the acknowledged cursor. A retry keeps the
 same event IDs, letting readers deduplicate an ambiguous network response.
 Main callers: Run initialization, its background flush thread, and CLI sync.
 Why this exists: interrupted uploads must remain recoverable without adding a
-queue service or application server to Foundry.
+queue service for each backend.
 """
 from __future__ import annotations
 
@@ -32,26 +32,13 @@ class BackpropError(Exception):
 
 
 def load_config(path=None):
-    """Read the explicit deployment config, then apply documented overrides."""
-    path = path or os.environ.get("BACKPROP_CONFIG")
-    data = {}
-    if path:
-        with open(path, encoding="utf-8") as source:
-            data = json.load(source)
-    for field, environment in {
-        "host": "BACKPROP_HOST", "stream_dataset_rid": "BACKPROP_STREAM_DATASET_RID",
-        "media_dataset_rid": "BACKPROP_MEDIA_DATASET_RID", "app_url": "BACKPROP_APP_URL",
-    }.items():
-        if os.environ.get(environment):
-            data[field] = os.environ[environment]
-    return data
+    from backprop_backend.connection import load_config as load_connection
+    return load_connection(path)
 
 
 def native_store(config, token=None):
-    from .foundry import FoundryStore
-    if not config.get("host") or not config.get("stream_dataset_rid"):
-        raise BackpropError("Online logging requires BACKPROP_CONFIG with host and stream_dataset_rid; use mode='offline' for local logging")
-    return FoundryStore(config, token=token)
+    from backprop_backend.connection import create_store
+    return create_store(config, token=token)
 
 
 class MemorySink:
@@ -107,7 +94,7 @@ class MemorySink:
                 "digest": base64.b64encode(hashlib.md5(data).digest()).decode()}
 
     def download_file(self, reference):
-        """Use the same integrity boundary as FoundryStore for local tests."""
+        """Use the same integrity boundary as the HTTP store for local tests."""
         data = self.files[reference["path"]]
         if hashlib.sha256(data).hexdigest() != reference["sha256"]:
             raise BackpropError("Downloaded file failed its SHA-256 integrity check")
@@ -116,25 +103,27 @@ class MemorySink:
         return data
 
 
-def read_journal(directory, *, project_artifacts=True):
-    """Read durable events, optionally retaining original artifact intent IDs.
-
-    Main callers: SDK replay and artifact operation recovery. Public reads use
-    canonical prepared identities; retry matching needs the original operation
-    that this writer queued, even if another finalizer's manifest won.
+def read_journal(directory: str | Path, *, project_artifacts: bool = True,
+                 sink: object | None = None) -> list[dict]:
+    """
+    Purpose: Read durable events with the selected store's artifact cache.
+    Input: A journal directory, a projection choice, and an optional store.
+    Output: Original intent records or the selected store's materialized records.
+    Note: A store without an acknowledgement namespace uses the legacy cache.
     """
     from .deferred_branch import read_local_branch
+    namespace = getattr(sink, "ack_namespace", None)
     prepared = read_local_branch(directory)
     if prepared is not None:
         from .deferred_incremental_artifacts import cached_events
-        return cached_events(directory, prepared) if project_artifacts else prepared
+        return cached_events(directory, prepared, namespace=namespace) if project_artifacts else prepared
     path = Path(directory) / "events.jsonl"
     if not path.exists():
         return []
     with path.open(encoding="utf-8") as source:
         events = [json.loads(line) for line in source if line.strip()]
     from .deferred_incremental_artifacts import cached_events
-    return cached_events(directory, events) if project_artifacts else events
+    return cached_events(directory, events, namespace=namespace) if project_artifacts else events
 
 
 class Journal:
@@ -152,7 +141,11 @@ class Journal:
         if self.event_path.exists():
             with self.event_path.open("rb") as source:
                 self.count = sum(1 for line in source if line.strip())
-        self.ack_path = self.directory / ("branch-ack.json" if _branch_prepared else "ack.json")
+        ack_name = "branch-ack" if _branch_prepared else "ack"
+        namespace = getattr(sink, "ack_namespace", None)
+        if namespace:
+            ack_name += "-" + namespace
+        self.ack_path = self.directory / (ack_name + ".json")
         acknowledged = json.loads(self.ack_path.read_text()) if self.ack_path.exists() else {}
         self.ack = acknowledged.get("count", 0)
         self._byte_offset = acknowledged.get("byte_offset", 0)
@@ -206,7 +199,7 @@ class Journal:
         """Copy bytes before returning a reference, so caller files may change.
 
         Main callers: rich value Encoder and Run.log_artifact. The reference
-        remains local in the journal and is replaced with a Foundry file
+        remains local in the journal and is replaced with a backend file
         reference only when publishing. Offline runs can therefore sync later.
         """
         if path is not None:
@@ -402,7 +395,7 @@ class Journal:
                 except TimeoutError:
                     raise
                 except Exception as error:
-                    raise BackpropError(f"Foundry upload failed; {self.count - self.ack} events remain in {self.directory}. Retry run.flush() or backprop sync. {type(error).__name__}: {error}") from error
+                    raise BackpropError(f"Backprop upload failed; {self.count - self.ack} events remain in {self.directory}. Retry run.flush() or backprop sync. {type(error).__name__}: {error}") from error
                 with self.lock:
                     new_ack = self.ack + len(batch)
                     temporary = self.ack_path.with_suffix(".tmp")
@@ -418,6 +411,10 @@ def sync(directory, config=None, sink=None):
     """Publish all unacknowledged events in one offline run directory."""
     if not (Path(directory) / "events.jsonl").is_file():
         raise BackpropError("No events.jsonl in the requested directory; pass run.sync_dir to sync an offline run")
-    journal = Journal(directory, sink or native_store(config or load_config()))
+    store = sink or native_store(config or load_config())
+    importer = getattr(store, "import_journal", None)
+    if importer is not None:
+        return importer(directory)
+    journal = Journal(directory, store)
     journal.flush()
     return journal.ack

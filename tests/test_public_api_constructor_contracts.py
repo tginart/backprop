@@ -161,7 +161,7 @@ class PublicApiConstructionFailures(unittest.TestCase):
         patch.dict(os.environ, {}, clear=True).start()
         patch.object(self.public, 'load_config', return_value=self.config).start()
         patch.object(self.runtime, 'resolve_settings', return_value=self.settings).start()
-        self.factory = patch.object(self.public, 'FoundryStore').start()
+        self.factory = patch.object(self.public, 'native_store').start()
         self.persist = patch('backprop.login_session.persist_candidate').start()
         self.prompt = patch('backprop.login_prompt.prompt_token', return_value='fixture-token').start()
 

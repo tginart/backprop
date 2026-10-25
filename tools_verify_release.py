@@ -59,6 +59,8 @@ def verify(root, output, browser=False):
             shutil.move(str(next((Path(temp)/'reference').iterdir())),work/'.reference/wandb/source')
         runtime={'BACKPROP_DIR':str(Path(temp)/'sdk-state'), 'PYTHONPATH':str(work/'sdk'),'BACKPROP_PYTHON':sys.executable,'BACKPROP_TEST_PYTHON':sys.executable,
                  'PATH':str(Path(sys.executable).parent)+os.pathsep+env.get('PATH','')}
+        # Child probes replace PYTHONPATH, so register the backend package mapping.
+        run('source-install',[sys.executable,'-m','pip','install','--no-deps','--no-build-isolation','-e','.'],work)
         run('python-contracts',[sys.executable,'-B','-m','unittest','discover','-s','tests','-p','test_*.py'],work,runtime)
         run('node-replay',['node','--test',*map(str,sorted((work/'tests').glob('test_*.mjs')))],work,runtime)
         dist=output/'dist';dist.mkdir(exist_ok=True)
@@ -88,6 +90,14 @@ def verify(root, output, browser=False):
             run(label+'-console',[str(console),'--help'],Path(temp))
             program=Path(temp)/'launcher.py';program.write_text('import wandb; assert wandb.__name__ == "backprop"\n')
             run(label+'-launcher',[str(python),'-m','backprop','run','--',str(program)],Path(temp))
+            run(label+'-local-restart',[str(python),'-m','unittest','discover',
+                '-s',str(work/'tests'),'-p','test_local_wheel.py','-q'],Path(temp),
+                {'BACKPROP_TEST_WHEEL':str(artifact)})
+            run(label+'-local-sdk',[str(python),str(work/'tests/backend_acceptance.py'),
+                '--backend','local','--report',str(output/(label+'-local-sdk.json'))],Path(temp))
+            run(label+'-local-demo',[str(python),str(work/'examples/local_smoke.py'),
+                '--directory',str(Path(temp)/(label+'-demo')),'--port','0',
+                '--steps','5','--interval','0.02','--no-open','--exit-after-demo'],Path(temp))
         sys.path.insert(0,str(work/'deploy'));from deploy import build_archive
         state={'host':'https://foundry.example.com','client_id':'synthetic-public-client','app_url':'https://backprop.example.com/'}
         resources={'host':state['host'],'branch':'master','stream_dataset_rid':'ri.foundry.main.dataset.synthetic-events','media_dataset_rid':'ri.foundry.main.dataset.synthetic-media'}
@@ -99,6 +109,12 @@ def verify(root, output, browser=False):
             (output/'website-manifest.json').write_text(json.dumps(asset_manifest,indent=2)+'\n')
             report['website']={'files':len(z.namelist()),'compressed_bytes':len(archive),'uncompressed_bytes':sum(r.file_size for r in z.infolist())}
         if browser:
+            installed_path=subprocess.check_output([str(python),'-c',
+                'from pathlib import Path; import backprop; print(Path(backprop.__file__).parent.parent)'],
+                cwd=temp,env=env,text=True).strip()
+            run('local-browser',['node',str(work/'tests/browser_local_backend_qa.mjs')],work,
+                {**runtime,'BACKPROP_PYTHON':str(python),
+                 'BACKPROP_TEST_PACKAGE_PATH':installed_path})
             run('chart-interactions',['node','--test',str(work/'tests/test_frontend_charts.mjs')],work,{**runtime,'CHARTS_BROWSER':'1'})
             for name in ['browser_chart_smoothing_qa.mjs','browser_request_recovery.mjs','browser_refresh_state_qa.mjs','browser_expansion_qa.mjs','browser_plotly_qa.mjs','browser_maps_qa.mjs','ui_workflow_reference_qa.mjs']:
                 run(name.removesuffix('.mjs'),['node',str(work/'tests'/name)],work,{**runtime,'PYTHON':sys.executable})

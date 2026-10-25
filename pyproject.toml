@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backprop-foundry"
-version = "0.1.1"
+version = "0.1.2"
 readme = "README.md"
 license = "Apache-2.0"
 description = "Foundry-native experiment logging with a W&B-shaped Python API"
@@ -39,10 +39,6 @@ azure = ["azure-storage-blob", "azure-identity"]
 
 [project.scripts]
 backprop = "backprop.__main__:main"
-
-[tool.setuptools.packages.find]
-where = ["sdk"]
-include = ["backprop*"]
 
 [tool.setuptools.package-data]
 backprop = ["integration/upstream-sources.json"]

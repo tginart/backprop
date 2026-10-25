@@ -21,7 +21,7 @@ import warnings
 from urllib.parse import urlsplit, quote
 
 from .errors import UsageError, UnsupportedError
-from .credential_store import default_path
+from backprop_backend.connection import credentials_path as default_path
 from .branching import RunMoment
 
 _ANONYMOUS_UNSET = object()
@@ -287,7 +287,7 @@ class Settings:
         for key, value in environ.items():
             if key == "WANDB_API_KEY" and value:
                 if value != "backprop-foundry-readiness-sentinel":
-                    warnings.warn("Ignoring WANDB_API_KEY: Backprop authenticates with FOUNDRY_TOKEN, BACKPROP_TOKEN, or an explicit Settings(api_key=...) Foundry token", RuntimeWarning, stacklevel=2)
+                    warnings.warn("Ignoring WANDB_API_KEY: Backprop uses credentials for the backend selected by BACKPROP_CONFIG", RuntimeWarning, stacklevel=2)
                 continue
             if value is not None and key.startswith("WANDB_"):
                 field = aliases.get(key[6:], key[6:].lower())

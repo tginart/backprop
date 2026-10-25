@@ -9,12 +9,12 @@ const vegaRegistry = new Map();
 /**
  * Architecture: API/auth boundary -> canonical run model -> view state -> DOM.
  * The API layer owns credentials, retries, archival reads and stream offsets.
- * This module owns workspace choices and renders only data returned by Foundry.
+ * This module owns workspace choices and renders only data returned by the backend.
  * Default browsing choices stay in this browser. Custom workspace code is gated.
  * Run data is never synthesized in the production UI.
  * Main entry points: boot(), refresh(), delegated click/input/change handlers.
  */
-import { initialize, loadWorkspace, getMediaUrl, loadRunControl, publishRunStop, getWorkspaceIdentity, publishWorkspaceEvent, isWorkspaceEvent } from './api.js';
+import { initialize, loadWorkspace, getMediaUrl, loadRunControl, publishRunStop, getWorkspaceIdentity, publishWorkspaceEvent, isWorkspaceEvent, getBackendPresentation, exportConfiguration } from './api.js';
 import { getAuthState, login, logout } from './auth.js';
 import {createWorkspaceSession,workspaceSaveLabel} from './workspace-session.mjs';
 import {captureViewState,restoreViewState,createRefreshRenderer} from './view-state.mjs';
@@ -152,7 +152,7 @@ async function openWorkspaceView(viewId='personal',{events,seed}={}){
 
 /** Read through the existing authenticated, verified artifact-file transport.
  * Main callers: the table explorer's JSON and NumPy decoders. A saved table
- * cannot provide its own network URL or bypass the Foundry manifest lookup.
+ * cannot provide its own network URL or bypass the backend manifest lookup.
  */
 async function readArtifactResponse(file) {
   const url=await getMediaUrl(file);
@@ -260,12 +260,12 @@ const button = (action, title, glyph, classes = '') => `<button class="icon-btn 
 const searchBox = (key, value, placeholder, extra = '') => `<div class="search ${extra}">${icon('search')}<input data-state="${key}" type="search" value="${e(value)}" placeholder="${e(placeholder)}" aria-label="${e(placeholder)}"></div>`;
 
 function renderTopbar() {
-  return `<header class="topbar"><a class="brand" href="./" aria-label="Backprop home"><img src="./favicon.svg" alt="">Backprop<span>Experiments</span></a><select ${state.loading ? 'disabled' : ''} data-state="project" class="project-mobile header-project" aria-label="Project">${state.loading ? '<option>Loading projects…</option>' : projectOptions()}</select><div class="topbar-right"><div class="connection"><span class="dot" style="background:${state.error ? 'var(--error)' : state.auth.authenticated ? 'var(--teal)' : 'var(--dim)'}"></span><span class="connection-label">${state.error ? 'Connection needs attention' : state.auth.authenticated ? 'Connected to Foundry' : 'Secure workspace'}</span></div>${state.auth.authenticated ? `<button class="avatar" data-action="logout" title="Sign out of Backprop" aria-label="Sign out of Backprop">${e((state.auth.user?.name || state.auth.user?.displayName || 'BP').slice(0, 2).toUpperCase())}</button>` : ''}</div></header>`;
+  return `<header class="topbar"><a class="brand" href="./" aria-label="Backprop home"><img src="./favicon.svg" alt="">Backprop<span>Experiments</span></a><select ${state.loading ? 'disabled' : ''} data-state="project" class="project-mobile header-project" aria-label="Project">${state.loading ? '<option>Loading projects…</option>' : projectOptions()}</select><div class="topbar-right"><div class="connection"><span class="dot" style="background:${state.error ? 'var(--error)' : state.auth.authenticated ? 'var(--teal)' : 'var(--dim)'}"></span><span class="connection-label">${state.error ? 'Connection needs attention' : state.auth.authenticated ? getBackendPresentation().connection : 'Secure workspace'}</span></div>${state.auth.authenticated && getBackendPresentation().canSignOut ? `<button class="avatar" data-action="logout" title="Sign out of Backprop" aria-label="Sign out of Backprop">${e((state.auth.user?.name || state.auth.user?.displayName || 'BP').slice(0, 2).toUpperCase())}</button>` : ''}</div></header>`;
 }
 function projectOptions() { return model.projects.length ? model.projects.map(project => `<option value="${e(project.id)}" ${state.project === project.id ? 'selected' : ''}>${e(project.name)}</option>`).join('') : '<option value="">Select a project</option>'; }
 function renderSidebar() {
   const views = [['overview','info','Project'],['workspace', 'grid', 'Workspace'], ['runs', 'runs', 'Runs'], ['artifacts', 'data', 'Artifacts']];
-  return `<aside class="sidebar"><div class="eyebrow project-label">Project</div><select class="project-select" data-state="project" aria-label="Choose project">${projectOptions()}</select><nav class="nav-group" aria-label="Project views">${views.map(([key, glyph, label]) => `<button class="nav-item ${(state.view === key || key === 'workspace' && state.view === 'run') ? 'active' : ''}" data-view="${key}" title="${label}" aria-label="${label}" ${(state.view === key || key === 'workspace' && state.view === 'run') ? 'aria-current="page"' : ''}>${icon(glyph)}<span class="nav-label">${label}</span>${key === 'runs' ? `<span class="count">${projectRuns().length}</span>` : ''}</button>`).join('')}</nav><nav class="nav-group"><button class="nav-item ${state.view === 'setup' ? 'active' : ''}" data-view="setup" title="Connect your code" aria-label="Connect your code">${icon('code')}<span class="nav-label">Connect your code</span></button></nav><div class="sidebar-bottom"><div class="eyebrow">Built on Foundry</div><p>Backprop · logging + visualization<br>30 second refresh interval</p></div></aside>`;
+  return `<aside class="sidebar"><div class="eyebrow project-label">Project</div><select class="project-select" data-state="project" aria-label="Choose project">${projectOptions()}</select><nav class="nav-group" aria-label="Project views">${views.map(([key, glyph, label]) => `<button class="nav-item ${(state.view === key || key === 'workspace' && state.view === 'run') ? 'active' : ''}" data-view="${key}" title="${label}" aria-label="${label}" ${(state.view === key || key === 'workspace' && state.view === 'run') ? 'aria-current="page"' : ''}>${icon(glyph)}<span class="nav-label">${label}</span>${key === 'runs' ? `<span class="count">${projectRuns().length}</span>` : ''}</button>`).join('')}</nav><nav class="nav-group"><button class="nav-item ${state.view === 'setup' ? 'active' : ''}" data-view="setup" title="Connect your code" aria-label="Connect your code">${icon('code')}<span class="nav-label">Connect your code</span></button></nav><div class="sidebar-bottom"><div class="eyebrow">${e(getBackendPresentation().footer)}</div><p>Backprop · logging + visualization<br>30 second refresh interval</p></div></aside>`;
 }
 
 /** Keep stable controls focused when a state update replaces their DOM.
@@ -340,24 +340,24 @@ function renderLoading() {
 }
 
 function renderAuth() {
-  return `<main class="auth-screen"><div class="auth-card"><img src="./favicon.svg" alt="Backprop"><div class="eyebrow">Your experiments, in focus</div><h1>See what learns.</h1><p>Track training runs, compare metrics, and inspect every logged result in one workspace connected to Palantir Foundry.</p>${state.error ? `<div class="notice error">${icon('info')}<span>${e(state.error)}</span></div><button class="btn" data-action="refresh">Retry connection</button>` : ''}<button class="btn primary" data-action="login" ${state.loading ? 'disabled' : ''}>${icon('lock')} ${state.loading ? 'Connecting...' : 'Continue with Foundry'} ${icon('arrow')}</button><p class="sub">Use your Foundry account to access experiment data.<br>Access follows your existing Foundry permissions.</p><div class="auth-trace"><span>${icon('pulse')} Live metrics</span><span>${icon('compare')} Run comparison</span><span>${icon('data')} Rich logged data</span></div></div></main>`;
+  return `<main class="auth-screen"><div class="auth-card"><img src="./favicon.svg" alt="Backprop"><div class="eyebrow">Your experiments, in focus</div><h1>See what learns.</h1><p>Track training runs, compare metrics, and inspect every logged result in one workspace connected to Palantir Foundry.</p>${state.error ? `<div class="notice error">${icon('info')}<span>${e(state.error)}</span></div><button class="btn" data-action="refresh">Retry connection</button>` : ''}<button class="btn primary" data-action="login" ${state.loading ? 'disabled' : ''}>${icon('lock')} ${state.loading ? 'Connecting...' : 'Continue to your workspace'} ${icon('arrow')}</button><p class="sub">Use your workspace account to access experiment data.<br>Access follows your workspace permissions.</p><div class="auth-trace"><span>${icon('pulse')} Live metrics</span><span>${icon('compare')} Run comparison</span><span>${icon('data')} Rich logged data</span></div></div></main>`;
 }
 function renderMain() {
   const project = chosenProject(), runs = projectRuns(), selected = selectedRuns();
   const title = { overview:'Project',artifacts:'Artifacts',workspace: 'Workspace', runs: 'Runs', compare: 'Compare runs', data: 'Logged data', setup: 'Connect your code' }[state.view] || 'Workspace';
-  const subtitles = {overview:'Project activity and recorded experiments.',artifacts:'Versioned data and models used by your experiments.', workspace: `${runs.length} runs · ${runs.filter(run => run.state === 'running').length} running · ${metricKeys(runs).length} metrics`, runs: 'Explore every experiment and its latest results.', compare: 'Find what changed, and what made the difference.', data: 'Inspect the tables, distributions, plots, and media behind your metrics.', setup: 'Keep your logging workflow. Bring your experiments into Foundry.' };
-  const intro = `<div class="breadcrumb">${icon('grid')}<span>${e(project?.entity || 'Foundry')}</span><span>/</span><strong>${e(project?.name || 'Experiments')}</strong><span>/</span><span>${e(title)}</span></div><div class="page-heading"><div><h1>${e(title)}</h1><p>${subtitles[state.view] || subtitles.workspace}</p></div><div class="heading-actions">${isDemo() ? '<span class="badge demo">Synthetic demo</span>' : ''}<button class="btn ghost live-btn ${state.live ? 'active' : ''}" data-action="live"><span class="dot"></span>${state.live ? 'Live · 30s' : 'Updates paused'}</button><button class="btn" data-action="refresh" ${state.refreshing ? 'disabled' : ''}>${icon('refresh')} ${state.refreshing ? 'Refreshing' : 'Refresh'}</button></div></div>`;
+  const subtitles = {overview:'Project activity and recorded experiments.',artifacts:'Versioned data and models used by your experiments.', workspace: `${runs.length} runs · ${runs.filter(run => run.state === 'running').length} running · ${metricKeys(runs).length} metrics`, runs: 'Explore every experiment and its latest results.', compare: 'Find what changed, and what made the difference.', data: 'Inspect the tables, distributions, plots, and media behind your metrics.', setup: 'Keep your logging workflow. Bring your experiments into your workspace.' };
+  const intro = `<div class="breadcrumb">${icon('grid')}<span>${e(project?.entity || 'Backprop')}</span><span>/</span><strong>${e(project?.name || 'Experiments')}</strong><span>/</span><span>${e(title)}</span></div><div class="page-heading"><div><h1>${e(title)}</h1><p>${subtitles[state.view] || subtitles.workspace}</p></div><div class="heading-actions">${isDemo() ? '<span class="badge demo">Synthetic demo</span>' : ''}<button class="btn ghost live-btn ${state.live ? 'active' : ''}" data-action="live"><span class="dot"></span>${state.live ? 'Live · 30s' : 'Updates paused'}</button><button class="btn" data-action="refresh" ${state.refreshing ? 'disabled' : ''}>${icon('refresh')} ${state.refreshing ? 'Refreshing' : 'Refresh'}</button></div></div>`;
   const projectIssues = [...(model.globalIssues || []), ...(model.issuesByProject?.[state.project] || [])];
   const warning = `${state.error ? `<div class="notice error">${icon('info')}<span>${e(state.error)}${state.fetchedAt ? ` Showing data last loaded ${e(age(state.fetchedAt))}.` : ''}</span><button class="btn small" data-action="refresh">Retry</button></div>` : ''}${preferenceError ? `<div class="notice error" role="alert">${e(preferenceError)}</div>` : ''}${state.warning ? `<div class="notice">${icon('info')}<span>${e(state.warning)}</span></div>` : ''}${projectIssues.length ? `<div class="notice">${icon('info')}<span>${e(projectIssues.join(' '))}</span></div>` : ''}`;
   if (state.view === 'setup') return intro + warning + renderSetup();
   if(state.view==='overview' && project)return intro+warning+renderProjectOverview({project,runs,icon,date:fullDate});
   if(state.view==='artifacts')return intro+warning+renderProjectArtifacts({runs,selection:state.artifactSelection,search:state.artifactSearch,icon,date:fullDate,renderFiles:renderRunFiles});
-  if (!model.runs.length) return intro + warning + `<div class="empty">${icon('pulse')}<h2>Your next experiment starts here.</h2><p>Connect the Backprop Python SDK and log your first run. Metrics will appear here as they arrive in Foundry.</p><button class="btn primary" data-view="setup">${icon('code')} Connect your code</button><p>Already logging? Use Refresh to load the latest data.</p></div>`;
+  if (!model.runs.length) return intro + warning + `<div class="empty">${icon('pulse')}<h2>Your next experiment starts here.</h2><p>Connect the Backprop Python SDK and log your first run. Metrics will appear here as they arrive in the backend.</p><button class="btn primary" data-view="setup">${icon('code')} Connect your code</button><p>Already logging? Use Refresh to load the latest data.</p></div>`;
 
   if (state.view === 'run') return renderWorkspaceHeading() + warning + renderRunPage();
   let content = state.view === 'runs' ? renderRuns() : state.view === 'compare' ? renderCompare() : state.view === 'data' ? renderData() : renderWorkspace();
   if(['workspace','runs'].includes(state.view))return renderWorkspaceHeading()+warning+content;
-  return intro + warning + content + `<footer class="workspace-footer"><span>${icon('lock')} Data stored in Palantir Foundry${isDemo() ? ' · Synthetic example data' : ''}</span><span>${state.fetchedAt ? `Loaded ${e(new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}` : ''} · ${e(state.source || 'Foundry stream')}</span></footer>`;
+  return intro + warning + content + `<footer class="workspace-footer"><span>${icon('lock')} ${e(getBackendPresentation().footer)}${isDemo() ? ' · Synthetic example data' : ''}</span><span>${state.fetchedAt ? `Loaded ${e(new Date(state.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}` : ''} · ${e(state.source || getBackendPresentation().source)}</span></footer>`;
 }
 
 function analysisButtons() {
@@ -774,7 +774,7 @@ function renderRichValue(value, id, color = '#8abbff', context = null) {
     return `<pre class="json-view">${e(JSON.stringify(value, null, 2))}</pre>`;
   }
   if (!value || typeof value !== 'object') return `<pre class="json-view">${e(value)}</pre>`;
-  if (value._backprop_external_reference) return `<div class="notice"><span>External artifact reference<code class="external-reference-uri">${e(value.uri || value.ref || '')}</code>Download through the Python SDK with the provider's credentials. These bytes are not stored in Foundry.</span></div>`;
+  if (value._backprop_external_reference) return `<div class="notice"><span>External artifact reference<code class="external-reference-uri">${e(value.uri || value.ref || '')}</code>Download through the Python SDK with the provider's credentials. These bytes are not stored in the backend.</span></div>`;
   if (value._load_error) return `<div class="notice error">${e(value._load_error)}</div>`;
   if (value._type === 'python.sequence') return `<details class="array-cell" data-view-key="${e(id)}"><summary>${e(value.kind || 'Sequence')} · ${Array.isArray(value.data) ? value.data.length : 0} items</summary><pre class="json-view">${e(JSON.stringify(value.data, null, 2))}</pre></details>`;
   if (value._type === 'timestamp' && typeof value.value === 'string') return `<time class="table-timestamp mono" datetime="${e(value.value)}">${e(value.value.replace('T',' ').replace(/Z$/,' UTC'))}</time>`;
@@ -971,11 +971,12 @@ async function hydrateMedia(root) {
 }
 
 function renderSetup() {
-  const install = "python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'";
+  const install = getBackendPresentation().installCommand;
   const project = chosenProject()?.name || 'my-project';
   const code = `import backprop as wandb\n\nwith wandb.init(project=${JSON.stringify(project)},\n                config={"learning_rate": 3e-4}) as run:\n    for step in range(100):\n        run.log({"train/loss": 1 / (step + 1)}, step=step)`;
-  const env = 'export BACKPROP_CONFIG="/path/to/backprop-config.json"\nexport FOUNDRY_TOKEN="<your Foundry token>"';
-  return `<div class="onboarding"><div class="onboarding-intro"><div class="eyebrow">Python to Foundry</div><h1>Your training loop. A new perspective.</h1><p>A familiar logging interface, connected directly to Foundry.<br>Start with a run, log metrics, and watch this workspace update.</p></div><section class="setup-card"><header><span class="step-number">1</span><h3>Install the Python package</h3><button class="icon-btn copy" data-copy="${e(install)}" aria-label="Copy install command">${icon('copy')}</button></header><pre>${e(install)}</pre><p>Requires Python 3.10 or newer. See the <a href="https://github.com/tginart/backprop#quick-start" target="_blank" rel="noopener noreferrer">Quick Start</a> for installation and optional integrations.</p></section><section class="setup-card"><header><span class="step-number">2</span><h3>Configure your Foundry connection</h3><button class="icon-btn copy" data-copy="${e(env)}" aria-label="Copy environment variables">${icon('copy')}</button></header><pre>${e(env)}</pre><p><button class="btn small" data-action="download-config">${icon('download')} Download connection file</button></p><p>Save the connection file, then set BACKPROP_CONFIG to its path. It contains dataset IDs and no credentials. Keep tokens in your environment.</p></section><section class="setup-card"><header><span class="step-number">3</span><h3>Log an experiment</h3><button class="icon-btn copy" data-copy="${e(code)}" aria-label="Copy logging example">${icon('copy')}</button></header><pre>${e(code)}</pre><p>Backprop supports scalar metrics, config, summary, custom step axes, tables, histograms, plots, and logged media. The README documents the exact compatibility surface.</p></section><button class="btn primary" data-view="workspace">Open workspace ${icon('arrow')}</button></div>`;
+  const connection = getBackendPresentation();
+  const env = connection.environment;
+  return `<div class="onboarding"><div class="onboarding-intro"><div class="eyebrow">${e(connection.label)} Backprop</div><h1>Your training loop. A new perspective.</h1><p>A familiar logging interface, connected to your workspace.<br>Start with a run, log metrics, and watch this workspace update.</p></div><section class="setup-card"><header><span class="step-number">1</span><h3>Install the Python package</h3><button class="icon-btn copy" data-copy="${e(install)}" aria-label="Copy install command">${icon('copy')}</button></header><pre>${e(install)}</pre><p>Requires Python 3.10 or newer. See the <a href="https://github.com/tginart/backprop#quick-start" target="_blank" rel="noopener noreferrer">Quick Start</a> for installation and optional integrations.</p></section><section class="setup-card"><header><span class="step-number">2</span><h3>${e(connection.setupTitle)}</h3><button class="icon-btn copy" data-copy="${e(env)}" aria-label="Copy environment variables">${icon('copy')}</button></header><pre>${e(env)}</pre><p><button class="btn small" data-action="download-config">${icon('download')} Download connection file</button></p><p>${e(connection.setupDescription)}</p></section><section class="setup-card"><header><span class="step-number">3</span><h3>Log an experiment</h3><button class="icon-btn copy" data-copy="${e(code)}" aria-label="Copy logging example">${icon('copy')}</button></header><pre>${e(code)}</pre><p>Backprop supports scalar metrics, config, summary, custom step axes, tables, histograms, plots, and logged media. The README documents the exact compatibility surface.</p></section><button class="btn primary" data-view="workspace">Open workspace ${icon('arrow')}</button></div>`;
 }
 
 function renderPinnedConfig(run) {
@@ -1090,7 +1091,7 @@ async function refresh({ refreshArchive = false } = {}) {
     projectSourceCache.clear();renderedCatalog=null;
     state.warning = workspace.warning || '';
     state.fetchedAt = workspace.fetchedAt || new Date().toISOString();
-    state.source = workspace.source || 'Foundry stream';
+    state.source = workspace.source || 'Backprop';
     state.error = '';
     if (!appliedRunLink) {
       const query = new URLSearchParams(location.search), projectName = query.get('project');
@@ -1111,7 +1112,7 @@ async function refresh({ refreshArchive = false } = {}) {
     const displayEvents=workspace.events.filter(isWorkspaceEvent);
     if(workspaceSession)workspaceSession.ingest(displayEvents);
     else if(CUSTOM_WORKSPACES && chosenProject())await openWorkspaceView(new URLSearchParams(location.search).get('nw') || state.activeViews.get(state.project) || 'personal',{events:displayEvents,seed:currentSnapshot()});
-  } catch (error) { state.auth = getAuthState(); state.error = error.message || 'Could not load the Foundry workspace.'; }
+  } catch (error) { state.auth = getAuthState(); state.error = error.message || 'Could not load the workspace.'; }
   finally {
     request = null; state.loading = false; state.refreshing = false; state.initialized = true;
     for (const button of app.querySelectorAll('[data-action="refresh"]')) button.disabled = false;
@@ -1243,8 +1244,7 @@ document.addEventListener('click', async event => {
       case 'restore-panels': for(const section of layout().sections)section.hidden=false; for (const metric of allPanels(projectRuns())) state.hiddenPanels.delete(panelKey(state.project, metric)); persist(); render(); managePanels(); break;
       case 'close-dialog': target.closest('dialog')?.close(); break;
       case 'download-config': {
-        const keys = ['host', 'stream_dataset_rid', 'media_dataset_rid', 'stream_view_rid', 'branch', 'app_url'];
-        const config = Object.fromEntries(keys.filter(key => applicationConfig?.[key] !== undefined).map(key => [key, applicationConfig[key]]));
+        const config = exportConfiguration(applicationConfig);
         download(JSON.stringify(config, null, 2) + '\n', 'backprop-config.json', 'application/json');
         toast('Connection file downloaded. It contains no credentials.'); break;
       }

@@ -38,7 +38,7 @@ def operation_id(run, group, manifest):
     value=fingerprint(run,group,manifest)
     for path in writer_journals(run):
         events=read_journal(path,project_artifacts=False)
-        journal=Journal(path,_branch_prepared=read_local_branch(path) is not None)
+        journal=Journal(path,run._sink,_branch_prepared=read_local_branch(path) is not None)
         acknowledged=journal.acknowledged_count()
         for position,event in enumerate(events,1):
             payload=event['payload']
@@ -73,6 +73,6 @@ def recover_local(run, identity, kind):
         if matching:
             journal = run._journal if path == current else Journal(path, run._sink)
             journal.flush()
-            recovered=next(event for event in read_journal(path) if event['event_id']==matching[0]['event_id'])
+            recovered=next(event for event in read_journal(path,sink=run._sink) if event['event_id']==matching[0]['event_id'])
             return journal._resolve(recovered) if run._sink is not None else recovered
     return None

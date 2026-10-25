@@ -30,7 +30,8 @@ def _source(artifact):
         return journal.directory, lambda: read_journal(journal.directory)
     if isinstance(artifact._store, JournalArtifactStore):
         from .deferred_incremental_artifacts import cached_events
-        return artifact._store.directory, lambda: cached_events(artifact._store.directory, artifact._store.events)
+        namespace = getattr(artifact._store.remote, 'ack_namespace', None)
+        return artifact._store.directory, lambda: cached_events(artifact._store.directory, artifact._store.events, namespace=namespace)
     return None
 
 
@@ -53,14 +54,14 @@ def publish_pending(artifact, run):
     if (getattr(artifact, "_incremental_pending", False) or getattr(artifact, "_distributed_pending", False)):
         from .deferred_incremental_artifacts import prepare_source
         prepare_source(artifact, source_dir, run._sink)
-        source_events = lambda: read_journal(source_dir)
+        source_events = lambda: read_journal(source_dir, sink=run._sink)
     key = json.dumps([artifact.entity, artifact.project, artifact._run_id, artifact._id, artifact.version])
     identity = uuid.uuid5(uuid.NAMESPACE_URL, 'backprop:artifact-handoff:' + key).hex
     directory = run._journal.directory / 'artifact-inputs' / identity
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / 'publish.lock').open('a+b') as lock, exclusive_lock(lock):
         journal = Journal(directory, run._sink)
-        previous = read_journal(directory)
+        previous = read_journal(directory, sink=run._sink)
         if previous:
             if len(previous) != 1:
                 raise UsageError('Artifact transfer journal must contain exactly one immutable manifest')

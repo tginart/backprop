@@ -295,7 +295,7 @@ class LoginSessionContracts(unittest.TestCase):
                         self.assertEqual(create.call_args.kwargs["token"], "per-run-fixture-token")
                         self.assertEqual(create.call_args.args[0]["host"], "https://per-run.invalid")
                         run.finish()
-                    with patch.object(public, "FoundryStore", return_value=sink) as create, \
+                    with patch.object(public, "native_store", return_value=sink) as create, \
                             patch.object(sink, "verify_credentials", create=True) as verify:
                         api = backprop.Api()
                         verify.assert_called_once_with()

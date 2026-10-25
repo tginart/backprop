@@ -167,6 +167,6 @@ def restore_table_types(run, descriptor):
         reference = descriptor.get("artifact_path")
         if not isinstance(reference, str) or not reference:
             raise ValueError("Resumed custom Table schema needs its prior artifact reference; sync its source before resuming")
-        store = JournalArtifactStore(run.sync_dir, read_journal(run.sync_dir), run._sink)
+        store = JournalArtifactStore(run.sync_dir, read_journal(run.sync_dir, sink=run._sink), run._sink)
         owner = native_reference_entry(SimpleNamespace(_store=store), reference).parent_artifact()
     return [ColumnType.from_json(item, owner) for item in schemas]

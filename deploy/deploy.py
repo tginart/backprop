@@ -12,6 +12,7 @@ import io
 import json
 from pathlib import Path
 import re
+import sys
 import time
 from urllib.error import HTTPError
 from urllib.parse import urlencode, urlsplit
@@ -24,23 +25,10 @@ from map_policy import MAKI_ICON_SOURCE, map_resource_origins
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_KEYS = {"host", "stream_dataset_rid", "media_dataset_rid", "stream_view_rid", "branch"}
-PUBLIC_ASSETS = ("index.html", "styles.css", "workspace.css", "app.mjs", "model.mjs", "artifact-lineage.mjs", "smoothing.mjs",
-                 "history-completeness.mjs", "charts.mjs", "interaction-overlays.mjs", "workspace.mjs", "run-analysis.mjs", "run-filter-editor.mjs", "workspace-layout.mjs", "saved-views.mjs", "panel-editor.mjs", "media-view.mjs", "mask-pixels.mjs", "graph-view.mjs", "graph-json.mjs", "console-view.mjs", "table-explorer.mjs", "table-join-key.mjs", "public-table.mjs", "numpy-file.mjs", "plotly-view.mjs", "plotly-strict-4.1.1.min.js", "plotly-LICENSE.txt", "run-control.mjs",
-                 "api.js", "auth.js", "network.mjs", "favicon.svg")
-PUBLIC_ASSETS += ("vega-view.mjs", "vega-6.2.0.min.js", "vega-lite-6.4.1.min.js",
-                  "vega-interpreter-2.2.1.min.js", "vega-LICENSE.txt", "vega-lite-LICENSE.txt", "vega-interpreter-LICENSE.txt", "vega-provenance.json")
-PUBLIC_ASSETS += ("plotly-resources.mjs", "plotly-strict-3.6.0.min.js",
-                  "plotly-map-sat.json", "plotly-map-hybrid.json", "plotly-map-LICENSE.txt",
-                  "plotly-topology-provenance.json")
-PUBLIC_ASSETS += ("sha256.mjs", "tensorboard-replay.mjs", "plotly-reset.mjs")
-PUBLIC_ASSETS += ("artifact-collections.mjs", "view-state.mjs")
-PUBLIC_ASSETS += ("tensorboard-groups.mjs", "tensorboard-summary.mjs")
-PUBLIC_ASSETS += ("chart-series.mjs", "experience.mjs", "workspace-store.mjs", "workspace-session.mjs", "panel-catalog.mjs",
-                  "panel-bank.mjs", "project-pages.mjs", "run-comparer.mjs", "chart-defaults.mjs")
-PUBLIC_ASSETS += tuple(f"{scope}_{resolution}m.json"
-                       for scope in ("africa", "antarctica", "asia", "europe", "north-america",
-                                     "oceania", "south-america", "usa", "world")
-                       for resolution in (110, 50))
+sys.path.insert(0, str(ROOT))
+from backend.assets import asset_names, source_asset
+
+PUBLIC_ASSETS = tuple(asset_names())
 MAX_WEBSITE_FILES = 1000
 MAX_WEBSITE_BYTES = 20_000_000
 ZIP_TIMESTAMP = (2026, 1, 1, 0, 0, 0)
@@ -54,7 +42,7 @@ def public_config(state, resources):
     """
     config = {key: resources[key] for key in PUBLIC_KEYS if key in resources}
     validate_matching_states(state, resources)
-    config.update(client_id=state.get("client_id"), app_url=state.get("app_url"))
+    config.update(backend="foundry", client_id=state.get("client_id"), app_url=state.get("app_url"))
     config["map_resource_origins"] = map_resource_origins(state)
     config["host"] = validate_host(config.get("host"))
     for key in ("stream_dataset_rid", "media_dataset_rid", "branch", "client_id", "app_url"):
@@ -115,7 +103,7 @@ def build_archive(state, resources):
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as bundle:
         for name in sorted(PUBLIC_ASSETS):
-            path = web / name
+            path = source_asset(name, ROOT)
             if path.is_symlink() or not path.is_file():
                 raise ValueError(f"Required public asset must be a regular file: {name}")
             data = path.read_bytes()

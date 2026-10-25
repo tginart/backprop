@@ -1,5 +1,27 @@
 # Release notes
 
+## 0.1.2
+
+Run Backprop locally with SQLite and the packaged dashboard, or keep your existing
+Foundry connection ([#5](https://github.com/tginart/backprop/pull/5)).
+
+- Add `backprop serve DIRECTORY` for a loopback dashboard and storage API.
+- Select local or Foundry through one connection file. Local mode needs no token or OAuth.
+- Import existing SDK journals with a separate local ingestion cursor. Preserve source
+  records and Foundry acknowledgements, deduplicate retries, and retain stream offsets.
+- Preserve imported linked-media choices through source edits, deletion, server restart,
+  lost responses, and concurrent imports. Keep artifact integrity and atomic claims.
+- Support metrics, history, resume, tables, Plotly, artifacts, preferences, and cooperative
+  stop controls through the existing SDK and browser interfaces.
+- Package dashboard assets in wheels and source distributions. Document local startup,
+  SSH forwarding, journal import, backup/restore, and verification.
+- Retain Foundry support and improve bounded archive/live reads, gzip retries, and login
+  deadlines. Completed local artifact rounds no longer suppress later identical rounds.
+
+Existing training code, public SDK APIs, and event formats remain compatible. Local mode
+requires an explicit local connection and a filesystem with reliable locks and fsync.
+Use SSH forwarding for remote access; the local server has no multi-user authentication.
+
 ## 0.1.1
 
 Browser workspace improvements from three merged pull requests:

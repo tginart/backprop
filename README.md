@@ -1,11 +1,11 @@
 # Backprop
 
-Backprop brings W&B-style experiment tracking to Palantir Foundry.
+Backprop brings W&B-style experiment tracking to Palantir Foundry or a local SQLite backend.
 
 It provides a familiar Python API for experiment logging, distributed training,
-artifacts and experiment inspection. Your data stays in Foundry, which handles storage,
-hosting, authentication and permissions. Backprop is independent of Weights & Biases and
-Palantir.
+artifacts and experiment inspection. Choose Foundry for managed storage, hosting,
+authentication and permissions, or run the dashboard and storage API on your machine.
+Backprop is independent of Weights & Biases and Palantir.
 
 ![Backprop workspace comparing training and validation
 metrics](assets/images/workspace.png)
@@ -28,20 +28,49 @@ charts](assets/images/run-details.png)
 
 </details>
 
+## Local backend
+
+Install Backprop 0.1.2 in your training environment:
+
+```bash
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
+```
+
+For a complete demo from this release's source checkout, run
+`python examples/local_smoke.py`.
+
+The smoke demo opens the local dashboard, records live metrics, a table and a
+Plotly chart, and verifies an artifact download. The dashboard stays up afterward;
+press Ctrl-C to stop it. Run it again to see the saved runs and add a new one.
+
+To host your own experiments:
+
+```bash
+backprop serve ./backprop-data
+```
+
+Open [the dashboard](http://127.0.0.1:8765). In another terminal, set
+`BACKPROP_CONFIG` to the absolute path of `backprop-data/connection.json` and run
+your existing training code. Local mode requires no token or browser sign-in.
+The installed CLI includes the dashboard assets and needs no source checkout.
+
+See [local setup, journal import, and backup/restore](docs/local-backend.md) and
+[backend verification](docs/backend-verification.md).
+
 ## Quick Start
 
-Requires Python 3.10 or newer. Install Backprop 0.1.1 in the environment that runs your
+Requires Python 3.10 or newer. Install Backprop 0.1.2 in the environment that runs your
 training code:
 
 ```bash
-python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.1'
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
 ```
 
 The Python package contains the SDK. Deploying the browser app requires a source
 checkout:
 
 ```bash
-git clone --branch v0.1.1 https://github.com/tginart/backprop.git
+git clone --branch v0.1.2 https://github.com/tginart/backprop.git
 cd backprop
 ```
 
@@ -157,7 +186,7 @@ shared-writer behavior.
 Use the runs sidebar to choose which experiments appear on charts. Expand the runs table
 to filter, group and sort runs, or open a run to inspect its Charts, Overview, Logs,
 Files and Artifacts. Browsing choices are remembered locally. Custom panels, layout
-editing and named/shared workspaces are not available in 0.1.1; the [interface
+editing and named/shared workspaces are not available in 0.1.2; the [interface
 guide](docs/interface.md) describes current behavior.
 
 ### Installation settings
@@ -251,18 +280,21 @@ guide](docs/python-api-support.md) for runtime requirements and limitations.
 
 ## Architectural Overview
 
-The repository has three parts: the Python package, the browser app and the installation
-tools. The package and browser read the same experiment events to reconstruct runs,
-histories and artifact relationships.
+The repository separates the SDK (`sdk/backprop/`), dashboard (`web/`), and backend
+adapters (`backend/foundry/` and `backend/local/`). One connection configuration
+selects the backend. Both clients read the same event schema to reconstruct runs,
+histories and artifact relationships. Browser authentication adapters live in
+`web/backends/`; shared Python connection and HTTP code lives under `backend/`.
 
 | Component | Code | Responsibility |
 | --- | --- | --- |
 | Python entry points | [`__init__.py`](sdk/backprop/__init__.py), [`compatibility.py`](sdk/backprop/compatibility.py) | Run lifecycle, module-level helpers and the `wandb` import aliases used by the launcher. |
-| Logging and persistence | [`run.py`](sdk/backprop/run.py), [`transport.py`](sdk/backprop/transport.py), [`foundry.py`](sdk/backprop/foundry.py) | A run records changes in a local journal; the transport publishes acknowledged batches and files to Foundry. |
+| Logging and persistence | [`run.py`](sdk/backprop/run.py), [`transport.py`](sdk/backprop/transport.py), [`connection.py`](backend/connection.py) | A run records changes in a durable journal; the selected adapter publishes acknowledged batches and files. |
 | Values and adapters | [`media.py`](sdk/backprop/media.py), [`integration`](sdk/backprop/integration/__init__.py) | Tables, media, artifacts, plotting, training hooks and optional framework callbacks. These use the same run and journal rather than separate upload paths. |
 | Experiment inspection | [`apis/public/api.py`](sdk/backprop/apis/public/api.py), [`replay.py`](sdk/backprop/apis/public/replay.py) | `Api` queries, returned run/file/artifact objects, event replay and public edits. |
 | Browser app | [`web/app.mjs`](web/app.mjs), [`api.js`](web/api.js), [`model.mjs`](web/model.mjs) | Navigation and views, authenticated reads, and reconstruction of the run model. Chart, table and media viewers live in separate modules. |
-| Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py) | Provision resources and package/publish the static app. These are operator tools, not a hosted Python backend. |
+| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py) | Foundry authentication and HTTP integration, or a loopback server with SQLite and artifact storage. |
+| Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py) | Provision resources and package/publish the static app. Foundry resource and deployment tools remain separate from the local server. |
 
 The [documentation index](docs/README.md) links the installation, migration and
 interface guides. See [contributing](CONTRIBUTING.md) for local development and test
