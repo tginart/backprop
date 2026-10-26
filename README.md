@@ -32,10 +32,10 @@ charts](assets/images/run-details.png)
 
 ## Local backend
 
-Install Backprop 0.1.2 in your training environment:
+Install Backprop 0.1.3 in your training environment:
 
 ```bash
-python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.3'
 ```
 
 For a complete demo from this release's source checkout, run
@@ -61,18 +61,18 @@ See [local setup, journal import, and backup/restore](docs/local-backend.md) and
 
 ## Quick Start
 
-Requires Python 3.10 or newer. Install Backprop 0.1.2 in the environment that runs your
+Requires Python 3.10 or newer. Install Backprop 0.1.3 in the environment that runs your
 training code:
 
 ```bash
-python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.3'
 ```
 
 The Python package contains the SDK. Deploying the browser app requires a source
 checkout:
 
 ```bash
-git clone --branch v0.1.2 https://github.com/tginart/backprop.git
+git clone --branch v0.1.3 https://github.com/tginart/backprop.git
 cd backprop
 ```
 

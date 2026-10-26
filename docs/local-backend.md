@@ -28,10 +28,10 @@ loads the shared implementation from `backend/`.
 Install the Backprop wheel in your training environment. A source checkout also
 works with `python -m pip install -e .`. Wheels and source distributions include
 the dashboard; the installed CLI needs no checkout, Node.js, or database service.
-Local mode is included in Backprop 0.1.2. Install the release and start the server:
+Local mode is included in Backprop 0.1.3. Install the release and start the server:
 
 ```bash
-python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.2'
+python -m pip install 'backprop-foundry @ git+https://github.com/tginart/backprop.git@v0.1.3'
 backprop serve ~/backprop-data
 ```
 

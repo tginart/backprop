@@ -1,5 +1,36 @@
 # Release notes
 
+## 0.1.3
+
+Run Backprop on Google Cloud with Cloud Run, Firestore, and GCS, alongside the
+existing Foundry and local SQLite backends
+([#7](https://github.com/tginart/backprop/pull/7)).
+
+- Store events, partition cursors, file references, and atomic artifact claims in
+  Firestore. Store artifact bytes in GCS. Metrics batches do not transfer a SQLite
+  database or scan the complete event history.
+- Preserve duplicate/conflict handling, offline replay, durable restart behavior,
+  metrics, tables, Plotly, artifacts, and cooperative stop through the shared SDK
+  and dashboard contracts.
+- Use refreshable Google Application Default Credentials for the SDK and Google
+  browser sign-in with an installation allowlist. Configure the project, region,
+  resources, and OAuth Web client explicitly.
+- Deploy dedicated Cloud Run, Firestore, GCS, service-account, and image-repository
+  resources. Record ownership for scoped cleanup. Cloud Run scales to zero by
+  default; public dashboard assets bypass the four-operation API budget.
+- Bound cloud history deadlines and native history memory. Refresh credentials in
+  dedicated stop readers and limit live JSON pages to 4 MiB, with exact cursor
+  traversal across shorter pages.
+- Add platform-specific architecture diagrams, setup, authentication, and operations
+  guides for all three backends. Cover native Firestore behavior with emulator
+  contracts and the existing shared SDK and browser acceptance scenarios.
+
+Existing public Python APIs and event formats remain compatible. Google Cloud
+requires the documented enabled APIs and IAM permissions; the deployment script
+lists these prerequisites without enabling APIs. Browser sign-in requires a
+one-time OAuth Web client setup. See [Google Cloud setup](docs/gcp-setup.md) and
+[backend architecture](README.md#how-it-runs).
+
 ## 0.1.2
 
 Run Backprop locally with SQLite and the packaged dashboard, or keep your existing

@@ -26,7 +26,7 @@ table. These are views of one project, not separate stores.
 
 Run visibility, filters and other exploration preferences belong to **this browser**.
 Custom panels, layout editing, named/shared workspaces, remote autosave and undo/redo
-are not available in 0.1.2.
+are not available in 0.1.3.
 
 ## Inspect logged values
 
@@ -48,10 +48,12 @@ polls every 30 seconds while visible. Pausing stops automatic reads; Refresh rem
 available. Failed refreshes retain the last successful data and show the error. Empty
 projects offer Python connection instructions.
 
-Sign-in uses Foundry permissions. Project/entity names are namespaces, not separate
-authorization boundaries within one installation. Logged HTML runs in a script-disabled
-sandbox. External map resources follow the operator's origin policy; Foundry credentials
-are not sent to providers. See [dependency security](dependency-security.md).
+Foundry sign-in uses Foundry permissions. GCP sign-in uses Google identity and the
+installation allowlist. The local loopback server requires no sign-in. Project/entity
+names are namespaces, not separate authorization boundaries within one installation.
+Logged HTML runs in a script-disabled sandbox. External map resources follow the
+operator's origin policy; backend credentials are not sent to providers. See
+[dependency security](dependency-security.md).
 
 Run-state edits record state; they do not kill training. Stop controls require explicit
 write consent and target a cooperating SDK process. An acknowledgment is not

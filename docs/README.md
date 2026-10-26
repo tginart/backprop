@@ -1,4 +1,4 @@
-# Backprop 0.1.2 documentation
+# Backprop 0.1.3 documentation
 
 Start with the [project overview and Quick Start](../README.md), then follow the guides
 below to deploy Backprop, log experiments and explore results.
@@ -44,7 +44,7 @@ Each backend README explains its data flow, resources, authentication, and opera
 
 | Document | Use it for |
 | --- | --- |
-| [Release notes](../RELEASE_NOTES.md) | See what is included in 0.1.2 and its compatibility boundaries. |
+| [Release notes](../RELEASE_NOTES.md) | See what is included in 0.1.3 and its compatibility boundaries. |
 | [Contributing](../CONTRIBUTING.md) | Set up development tools, run tests and submit changes. |
 | [Third-party notices](../THIRD_PARTY_NOTICES.md) | Find component provenance and attribution. |
 | [Apache-2.0 license](../LICENSE) | Read the project license. |
