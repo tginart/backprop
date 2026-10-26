@@ -10,6 +10,7 @@ from http.server import ThreadingHTTPServer
 import json
 import os
 import re
+import threading
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from google.api_core.exceptions import GoogleAPICallError
@@ -42,6 +43,7 @@ def create_server(*, database: FirestoreDatabase, origin: str, authorize: Google
     server.connection = connection
     server.origin = origin
     server.authorize = authorize
+    server.api_slots = threading.BoundedSemaphore(4)
     server.asset_names = frozenset(asset_names())
     server.asset_paths = {name: asset_path(name) for name in server.asset_names}
     return server
@@ -72,6 +74,20 @@ class _Handler(HttpHandler):
             self._error(503, "StorageUnavailable", "Google Cloud storage is unavailable")
 
     def _route(self) -> None:
+        """
+        Purpose: Bound data operations while public assets use Cloud Run capacity.
+        Input: A verified request with the same decoded path as the protocol router.
+        Output: A public response or at most four concurrent API operations.
+        Note: Large artifacts retain the original four-request memory budget.
+        """
+        path = unquote(urlsplit(self.path).path, errors="strict")
+        if not path.startswith(("/api/", "/multipass/")):
+            self._route_operation()
+            return
+        with self.server.api_slots:
+            self._route_operation()
+
+    def _route_operation(self) -> None:
         """
         Purpose: Select the existing wire operations with GCP resource identifiers.
         Input: A validated path, method, and query.

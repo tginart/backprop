@@ -121,9 +121,12 @@ Failures after resource creation preserve the ledger for cleanup. New Google
 service accounts have bounded propagation retries. The command does not enable
 APIs or change project IAM automatically.
 
-Cloud Run uses zero minimum instances, four maximum instances, concurrency four,
-a 300-second timeout, and 4 GiB memory. `max_instances` is configurable. The bucket
-has uniform access and public access prevention. Soft-delete retention is disabled
+Cloud Run uses zero minimum instances, four maximum instances, concurrency sixteen,
+a 300-second timeout, and 4 GiB memory. `max_instances` is configurable. The GCP
+server permits four concurrent API operations per instance. Other API operations
+wait for a slot. Public assets and the connection file do not use these slots.
+This preserves the large-data memory budget while the browser loads its modules.
+The bucket has uniform access and public access prevention. Soft-delete retention is disabled
 so temporary resource cleanup removes stored bytes. Staged file parts have a
 one-day deletion lifecycle rule.
 

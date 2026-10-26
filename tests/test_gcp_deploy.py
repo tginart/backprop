@@ -77,6 +77,9 @@ class GcpDeploymentTests(unittest.TestCase):
             self.assertEqual(json.loads(Path(result["connection_path"]).read_text())["backend"], "gcp")
             self.assertTrue(all(command[-3:-1] == ["--project", CONFIG["project"]] for command in calls))
             self.assertTrue(any("--no-invoker-iam-check" in command for command in calls))
+            deployment = next(command for command in calls if command[1:3] == ["run", "deploy"])
+            self.assertEqual(deployment[deployment.index("--concurrency") + 1], "16")
+            self.assertEqual(deployment[deployment.index("--min-instances") + 1], "0")
             self.assertFalse(any(command[1:3] == ["services", "enable"] for command in calls))
             bindings = [command for command in calls if command[1] == "projects"]
             self.assertEqual(len(bindings), 1)

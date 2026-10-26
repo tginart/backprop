@@ -451,6 +451,81 @@ class GcpDatabaseTests(unittest.TestCase):
 class GcpHttpTests(unittest.TestCase):
     """Run SDK acceptance with the real HTTP contract and a GCS fixture."""
 
+    def test_slow_api_requests_leave_public_assets_available(self):
+        """
+        Purpose: Keep dashboard assets available within the original API memory budget.
+        Input: Four blocked API requests, an encoded fifth request, and public requests.
+        Output: Public responses complete while at most four API operations execute.
+        """
+        opener = request.build_opener(request.ProxyHandler({}))
+        release = threading.Event()
+        full = threading.Event()
+        overflow = threading.Event()
+        condition = threading.Condition()
+        authorized = 0
+        active = 0
+        peak = 0
+
+        def blocked_records(**options) -> list:
+            nonlocal active, peak
+            with condition:
+                active += 1
+                peak = max(peak, active)
+                if active == 4:
+                    full.set()
+                if active > 4:
+                    overflow.set()
+            try:
+                if not release.wait(10):
+                    raise TimeoutError("The test did not release the API requests")
+                return []
+            finally:
+                with condition:
+                    active -= 1
+
+        with service() as server:
+            original_authorize = server.authorize
+
+            def authorize(header: str) -> dict:
+                nonlocal authorized
+                identity = original_authorize(header)
+                with condition:
+                    authorized += 1
+                    condition.notify_all()
+                return identity
+
+            def fetch(path: str) -> bytes:
+                req = request.Request(
+                    f"http://127.0.0.1:{server.server_port}" + path,
+                    headers={"Authorization": "Bearer " + TOKEN, "Origin": ORIGIN},
+                )
+                with opener.open(req, timeout=10) as response:
+                    return response.read()
+
+            server.authorize = authorize
+            path = (f"/api/v2/highScale/streams/datasets/{STREAM_RID}"
+                    "/streams/master/getRecords")
+            with patch.object(server.database, "read_records", blocked_records), \
+                    ThreadPoolExecutor(max_workers=5) as pool:
+                futures = []
+                try:
+                    futures = [pool.submit(fetch, path) for _ in range(4)]
+                    self.assertTrue(full.wait(5), "The four API requests did not start")
+                    futures.append(pool.submit(fetch, path.replace("/api/", "/%61pi/", 1)))
+                    with condition:
+                        self.assertTrue(condition.wait_for(lambda: authorized == 5, timeout=5))
+                    self.assertEqual(json.loads(fetch("/config.json"))["backend"], "gcp")
+                    self.assertIn(b"import ", fetch("/app.mjs"))
+                    self.assertFalse(
+                        overflow.wait(0.2),
+                        "The fifth API request exceeded the memory budget",
+                    )
+                finally:
+                    release.set()
+                self.assertEqual([future.result() for future in futures], [b"[]"] * 5)
+            self.assertEqual(peak, 4)
+            self.assertEqual(json.loads(fetch(path)), [])
+
     def test_existing_shared_acceptance_scenario(self):
         with service() as server, patch.dict("os.environ", {"BACKPROP_GCP_ACCESS_TOKEN": TOKEN}):
             result = run_scenario(server.connection, token=None, archive_timeout_s=5)

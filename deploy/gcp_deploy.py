@@ -239,7 +239,7 @@ def deploy(config: dict, state_path: Path, *, run: Callable = subprocess.run) ->
             command("run", "deploy", name, "--region", region, "--image", image,
                     "--service-account", account, "--no-invoker-iam-check",
                     "--env-vars-file", str(env), "--port", "8080", "--memory", "4Gi",
-                    "--cpu", "1", "--cpu-throttling", "--concurrency", "4", "--min-instances", "0",
+                    "--cpu", "1", "--cpu-throttling", "--concurrency", "16", "--min-instances", "0",
                     "--max-instances", str(config.get("max_instances", 4)), "--timeout", "300")
             origin = command("run", "services", "describe", name, "--region", region,
                              "--format", "value(status.url)")
