@@ -57,6 +57,15 @@ executable. The CI backend job installs its pinned browser runtime automatically
 `summary.json` distinguishes real Foundry phases from an unrequested live check.
 A passing fixture run does not establish live Foundry availability.
 
+GCP runs the same SDK scenario through `--backend gcp --gcp-config PATH`.
+`tools/verify_backends.py --gcp-config PATH` adds deployed GCP SDK and browser
+phases to the existing matrix. Use ADC for the SDK and
+`BACKPROP_GCP_ACCESS_TOKEN` for the automated browser session. The GCP-specific
+contract suite covers generation races, concurrent instances, duplicate replay,
+atomic claims, installation isolation, history boundaries, ADC refresh, large
+files, Google identity checks, browser sessions, and resource cleanup ledgers.
+See [GCP deployment](gcp-setup.md) for real-test setup and cleanup.
+
 ## Focused acceptance commands
 
 ```bash

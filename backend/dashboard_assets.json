@@ -12,6 +12,7 @@
   "auth.js",
   "backends/connection.js",
   "backends/foundry.js",
+  "backends/gcp.js",
   "backends/http.js",
   "backends/local.js",
   "chart-defaults.mjs",

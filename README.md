@@ -1,11 +1,15 @@
 # Backprop
 
-Backprop brings W&B-style experiment tracking to Palantir Foundry or a local SQLite backend.
+Backprop brings W&B-style experiment tracking to Palantir Foundry, local SQLite, or Google Cloud.
 
 It provides a familiar Python API for experiment logging, distributed training,
 artifacts and experiment inspection. Choose Foundry for managed storage, hosting,
 authentication and permissions, or run the dashboard and storage API on your machine.
 Backprop is independent of Weights & Biases and Palantir.
+
+For Cloud Run hosting, durable GCS storage, and Google authentication, see
+[Google Cloud deployment](docs/gcp-setup.md). All three backends use the same
+Python APIs and dashboard.
 
 ![Backprop workspace comparing training and validation
 metrics](assets/images/workspace.png)
@@ -281,7 +285,7 @@ guide](docs/python-api-support.md) for runtime requirements and limitations.
 ## Architectural Overview
 
 The repository separates the SDK (`sdk/backprop/`), dashboard (`web/`), and backend
-adapters (`backend/foundry/` and `backend/local/`). One connection configuration
+adapters (`backend/foundry/`, `backend/local/`, and `backend/gcp/`). One connection configuration
 selects the backend. Both clients read the same event schema to reconstruct runs,
 histories and artifact relationships. Browser authentication adapters live in
 `web/backends/`; shared Python connection and HTTP code lives under `backend/`.

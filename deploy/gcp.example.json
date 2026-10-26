@@ -1,0 +1,9 @@
+{
+  "project": "your-gcp-project",
+  "region": "us-central1",
+  "name": "backprop-your-installation",
+  "prefix": "backprop",
+  "client_id": "your-web-client.apps.googleusercontent.com",
+  "allowed_emails": ["operator@example.com"],
+  "max_instances": 4
+}

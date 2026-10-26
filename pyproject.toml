@@ -34,7 +34,7 @@ query = ["google-re2"]
 checksums = ["xxhash"]
 references = ["requests>=2.34.2", "urllib3>=2.8", "certifi>=2026.7.22"]
 aws = ["boto3"]
-gcp = ["google-cloud-storage"]
+gcp = ["google-cloud-storage>=3,<4", "google-auth[requests]>=2,<3"]
 azure = ["azure-storage-blob", "azure-identity"]
 
 [project.scripts]

@@ -6,6 +6,7 @@ recursive-include sdk/backprop *.json
 include backend/*.py backend/dashboard_assets.json
 recursive-include backend/local *.py
 recursive-include backend/foundry *.py
+recursive-include backend/gcp *.py
 recursive-include web/backends *.js
 exclude web/config.json
 exclude web/renderer-package-lock.json

@@ -1,7 +1,7 @@
 # Backend connection contract
 
 The SDK and dashboard use one public connection configuration. Its `backend`
-field selects `foundry` or `local`. Files without that field select Foundry for
+field selects `foundry`, `local`, or `gcp`. Files without that field select Foundry for
 compatibility. Credentials stay outside the configuration.
 
 The SDK reads the file selected by `BACKPROP_CONFIG`. The dashboard reads the
@@ -39,6 +39,8 @@ apply; clear an old host or resource override before you switch connection files
   and resource setup/verification.
 - `local/`: loopback policy, credential-free adapter, HTTP server, SQLite, artifacts,
   and read-only journal import.
+- `gcp/`: Google credentials, Cloud Run HTTP policy, GCS snapshot transactions,
+  immutable objects, and bounded multipart uploads.
 - `assets.py` and `dashboard_assets.json`: the explicit public asset boundary used
   by the installed local server and Foundry website packaging.
 
@@ -49,7 +51,7 @@ contract, and `foundry.js` and `local.js` own browser authentication and policy.
 Dashboard views and SDK consumers do not select a backend. Legacy SDK module names forward to backend
 implementations so existing imports and test patch identities remain valid.
 
-Wheels install both adapters as `backprop_backend`, with all dashboard resources.
+Wheels install all three adapters as `backprop_backend`, with all dashboard resources.
 Use `python -m pip install -e .` for source development. A new backend adapter can
 use these interfaces without a backend branch in the SDK or dashboard components.
 
@@ -67,3 +69,6 @@ place for scripts that already use them.
 See [local startup, imports, backups, and limitations](../docs/local-backend.md).
 
 See [backend verification](../docs/backend-verification.md) for the test matrix and live checks.
+
+See [Google Cloud deployment](../docs/gcp-setup.md) for configuration, authentication,
+storage guarantees, deployment, verification, and cleanup.
