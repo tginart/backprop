@@ -4,6 +4,10 @@ The SDK and dashboard use one public connection configuration. Its `backend`
 field selects `foundry`, `local`, or `gcp`. Files without that field select Foundry for
 compatibility. Credentials stay outside the configuration.
 
+For platform architecture, data flow, authentication, and operations, see the
+[Foundry](foundry/README.md), [local SQLite](local/README.md), and
+[Google Cloud](gcp/README.md) backend READMEs.
+
 The SDK reads the file selected by `BACKPROP_CONFIG`. The dashboard reads the
 same shape from `config.json`. Local startup writes `connection.json` for the SDK
 and serves its contents at `/config.json`. Foundry website deployment generates
@@ -49,7 +53,7 @@ apply; clear an old host or resource override before you switch connection files
 The SDK owns public training/analysis APIs, event models, and durable journals.
 `web/` owns dashboard views and visualization models. Browser adapters live in
 `web/backends/`: `connection.js` selects an adapter, `http.js` shares the data
-contract, and `foundry.js` and `local.js` own browser authentication and policy.
+contract, and `foundry.js`, `local.js`, and `gcp.js` own browser authentication and policy.
 Dashboard views and SDK consumers do not select a backend. Legacy SDK module names forward to backend
 implementations so existing imports and test patch identities remain valid.
 

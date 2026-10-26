@@ -39,8 +39,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 15135,
-      "sha256": "4c411437bb29ada576aaa518f4797b61c0c93d4d231b6f857bed11bd9e7a7099"
+      "bytes": 13079,
+      "sha256": "1475b93794f307c74c02bca80ea9fbd41a9084db09324bd4881405843ae19b3a"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -74,8 +74,8 @@
     },
     {
       "path": "backend/README.md",
-      "bytes": 3700,
-      "sha256": "7add05323913ac3c99dc3aaa376fabf71470e4cb9f39ece73daa0a7642d11d6f"
+      "bytes": 3904,
+      "sha256": "61fe4b61cec50f040e9a6d687fde17593bb435f3e475066bf9e72b7de302fa99"
     },
     {
       "path": "backend/__init__.py",
@@ -113,6 +113,11 @@
       "sha256": "d878916bf6a07cf00c1902f0555ab6baf9ff75270f2d3bade79bd7422da77455"
     },
     {
+      "path": "backend/foundry/README.md",
+      "bytes": 5397,
+      "sha256": "683f9e747e124988fea368d5bdfc2ce1070883211e42ba16184f7df9f05c76ba"
+    },
+    {
       "path": "backend/foundry/__init__.py",
       "bytes": 174,
       "sha256": "2e7fb1d161e269fff0b0748a76871b7eb1bf94bde57b6852fdedc26f07d783df"
@@ -146,6 +151,11 @@
       "path": "backend/foundry/verify.py",
       "bytes": 5127,
       "sha256": "2b20f51453c68dffbf9378040336a07f8d34ce2505b4a3fd7e914fe780c98ac7"
+    },
+    {
+      "path": "backend/gcp/README.md",
+      "bytes": 6683,
+      "sha256": "8db325ae9866f1f5de69c6d50c35e9f53a21b22f10aa78fb5720d47271da44c8"
     },
     {
       "path": "backend/gcp/__init__.py",
@@ -191,6 +201,11 @@
       "path": "backend/http_store.py",
       "bytes": 20555,
       "sha256": "884a625cf1aa70a7ed687eeb067f0e360167560f0baa35f6b0b8d4cf458086cd"
+    },
+    {
+      "path": "backend/local/README.md",
+      "bytes": 5510,
+      "sha256": "54918b18359d87143b35c11e6a4e9768bb9cbc75b9414b119d0baa0036a21b83"
     },
     {
       "path": "backend/local/__init__.py",
@@ -319,8 +334,8 @@
     },
     {
       "path": "docs/README.md",
-      "bytes": 2204,
-      "sha256": "b6dbd889aedf8e73450367c6362ad4e84d70c36cfd109487eeb76d9ac382d6e7"
+      "bytes": 2665,
+      "sha256": "1eb0701e65cecb13ad374da708f9c4c5f40bcef9e8018c49c104c1e9affde4a0"
     },
     {
       "path": "docs/backend-verification.md",
@@ -359,8 +374,8 @@
     },
     {
       "path": "docs/local-backend.md",
-      "bytes": 8572,
-      "sha256": "a4ef7f772e52714d8e3108a9f3bf5fcb976a7916dc163ebdd3811aaf22133378"
+      "bytes": 8585,
+      "sha256": "130cb26ee06da30bd1ea20095313b0b190491c3289c49d85bba0472167bb436d"
     },
     {
       "path": "docs/python-api-support.md",
@@ -3674,8 +3689,8 @@
     },
     {
       "path": "tools_check_release.py",
-      "bytes": 5161,
-      "sha256": "87f76f51664de66d8e813c8f330a298b83d71232c72d81da1f510c950682a9ba"
+      "bytes": 5243,
+      "sha256": "f48e2b17f4e6b0ff05dda0e72f78184aafd6c24beb29ef860dc4460ed62bee4e"
     },
     {
       "path": "tools_smoke_release.py",
