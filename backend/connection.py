@@ -33,6 +33,9 @@ def load_config(path: str | Path | None = None) -> dict:
 
 
 def normalize_config(config: dict) -> dict:
+    if _backend_name(config) == "gcp":
+        from .gcp.config import normalize_gcp_config
+        return normalize_gcp_config(config)
     if _backend_name(config) == "local":
         from .local.config import normalize_local_config
         return normalize_local_config(config)
@@ -45,6 +48,9 @@ def create_store(config: dict, token: str | None = None) -> Any:
     Input: A connection dictionary and an optional explicit credential.
     Output: A store with the shared event and artifact methods.
     """
+    if _backend_name(config) == "gcp":
+        from .gcp.store import GcpStore
+        return GcpStore(config, token=token)
     if _backend_name(config) == "local":
         from .local.store import LocalStore
         return LocalStore(config)
@@ -65,6 +71,9 @@ def authenticate_candidate(*, load_config: Callable, native_store: Callable,
     """
     if config is None and (os.environ.get("BACKPROP_CONFIG") or os.environ.get("BACKPROP_BACKEND")):
         config = load_config()
+    if _backend_name(config or {}) == "gcp":
+        from .gcp.auth import authenticate_candidate as authenticate
+        return authenticate(config=config, native_store=native_store, **options)
     if _backend_name(config or {}) == "local":
         from .local.auth import authenticate_candidate as authenticate
         return authenticate(config=config, native_store=native_store, **options)
@@ -86,6 +95,8 @@ def configure_settings(settings: Any, candidate: AuthCandidate) -> None:
 
 
 def publish_candidate(candidate: AuthCandidate) -> None:
+    if candidate.backend == "gcp" and candidate.token is not None:
+        os.environ["BACKPROP_GCP_ACCESS_TOKEN"] = candidate.token
     if candidate.backend == "foundry":
         os.environ["BACKPROP_TOKEN"] = candidate.token
         if candidate.host is not None:
@@ -99,11 +110,15 @@ def credentials_path() -> str:
 
 def credential_values() -> list[str | None]:
     return [os.environ.get(name) for name in
-            ("FOUNDRY_TOKEN", "BACKPROP_TOKEN", "WANDB_API_KEY")]
+            ("FOUNDRY_TOKEN", "BACKPROP_TOKEN", "WANDB_API_KEY", "BACKPROP_GCP_ACCESS_TOKEN")]
 
 
 def snapshot_store(store: Any) -> dict:
+    from .gcp.store import GcpStore
     from .http_store import HttpStore
+    if isinstance(store, GcpStore):
+        return {"kind": "backend", "config": dict(store.config),
+                "token": store._explicit_token}
     if isinstance(store, HttpStore):
         return {"kind": "backend", "config": dict(store.config), "token": store.token}
     return {"kind": "provided", "sink": store}
@@ -119,7 +134,7 @@ def restore_store(descriptor: dict) -> Any:
 
 def _backend_name(config: dict) -> str:
     name = config.get("backend", "foundry")
-    if name not in {"foundry", "local"}:
+    if name not in {"foundry", "local", "gcp"}:
         raise ValueError("Unknown Backprop backend")
     return name
 
@@ -133,6 +148,12 @@ def prepare_init_candidate(settings: Any, supplied: Any, deployment: dict | None
     Output: A detached connection and authentication result.
     """
     config = dict(deployment if deployment is not None else load_config())
+    if _backend_name(config) == "gcp":
+        explicit = supplied if isinstance(supplied, dict) else getattr(supplied, "_explicit", set())
+        key = settings.api_key if "api_key" in explicit else None
+        candidate = authenticate_candidate(config=config, load_config=lambda: config,
+            native_store=native_store, key=key, host=config.get("host"))
+        return config, candidate
     if _backend_name(config) == "local":
         candidate = authenticate_candidate(config=config, load_config=lambda: config,
             native_store=native_store, host=config.get("host"))

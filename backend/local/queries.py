@@ -9,10 +9,10 @@ from __future__ import annotations
 import re
 
 from .config import STREAM_RID
+from backprop_backend.records import FIELDS
 
 
 LITERAL = r"decode\(unhex\('([0-9a-f]*)'\), 'UTF-8'\)"
-FIELDS = "schema_version,event_id,run_id,project,entity,event_type,timestamp,payload"
 MAX_QUERY_ROWS = 1_000_000
 
 

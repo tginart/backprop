@@ -34,7 +34,8 @@ def verify(args: argparse.Namespace) -> dict:
                    'PYTHONPATH': str(ROOT / 'sdk'), 'BACKPROP_PYTHON': sys.executable}
     report = {'started_at': datetime.now(timezone.utc).isoformat(), 'phases': [],
               'status': 'running', 'live_foundry_requested': bool(args.foundry_config),
-              'oauth_note': 'OAuth PKCE and consent use protocol fixtures; browser data can use real Foundry HTTP.'}
+              'live_gcp_requested': bool(args.gcp_config),
+              'oauth_note': 'Foundry and Google consent use protocol fixtures; browser data can use real backend HTTP.'}
     fingerprint = hashlib.sha256()
     for folder in ('backend', 'sdk', 'web', 'tests', 'tools'):
         for path in sorted((ROOT / folder).rglob('*')):
@@ -115,6 +116,15 @@ def verify(args: argparse.Namespace) -> dict:
         phase('foundry-browser', ['node', 'tests/browser_local_backend_qa.mjs'], foundry_browser)
     else:
         report['phases'].append({'name': 'real-foundry', 'status': 'not requested'})
+    if args.gcp_config:
+        config = args.gcp_config.resolve()
+        phase('gcp-sdk-acceptance', [sys.executable, '-B', 'tests/backend_acceptance.py',
+              '--backend', 'gcp', '--gcp-config', str(config),
+              '--report', str(output / 'gcp-acceptance.json')], installed_env)
+        phase('gcp-browser', ['node', 'tests/browser_local_backend_qa.mjs'],
+              {**installed_env, 'BACKPROP_TEST_GCP_CONFIG': str(config)})
+    else:
+        report['phases'].append({'name': 'real-gcp', 'status': 'not requested'})
     report['completed_at'] = datetime.now(timezone.utc).isoformat()
     report['status'] = 'passed'
     summary.write_text(json.dumps(report, indent=2) + '\n')
@@ -127,6 +137,7 @@ def main() -> None:
     parser.add_argument('--output', type=Path, default=ROOT / 'test-results/backend-verification' / stamp,
                         help='Fresh directory for logs, packages, and summary.json')
     parser.add_argument('--foundry-config', type=Path, help='Also verify real Foundry storage with this configuration')
+    parser.add_argument('--gcp-config', type=Path, help='Also verify a real GCP deployment using ADC or BACKPROP_GCP_ACCESS_TOKEN')
     parser.add_argument('--deployment-credentials', action='store_true', help='Read the existing deployment credential with gcloud for live Foundry tests')
     parser.add_argument('--archive-timeout', type=float, default=420, help='Maximum seconds for Foundry SQL archive visibility')
     args = parser.parse_args()

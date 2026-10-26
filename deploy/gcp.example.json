@@ -1,0 +1,11 @@
+{
+  "project": "your-gcp-project",
+  "region": "us-central1",
+  "name": "backprop-your-installation",
+  "firestore_database": "backprop-your-installation",
+  "firestore_location": "us-central1",
+  "prefix": "backprop",
+  "client_id": "",
+  "allowed_emails": ["operator@example.com"],
+  "max_instances": 4
+}

@@ -70,7 +70,8 @@ def _asset_sources() -> list[Path]:
 setup(
     packages=[*find_packages("sdk", include=["backprop", "backprop.*"]),
               "backprop_backend",
-              "backprop_backend.local", "backprop_backend.foundry"],
+              "backprop_backend.local", "backprop_backend.foundry",
+              "backprop_backend.gcp"],
     package_dir={"": "sdk", "backprop_backend": "backend"},
     package_data={"backprop_backend": ["dashboard_assets.json"]},
     cmdclass={"build_py": BuildDashboard},

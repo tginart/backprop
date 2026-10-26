@@ -9,6 +9,7 @@ below to deploy Backprop, log experiments and explore results.
 | --- | --- |
 | [Local backend](local-backend.md) | Start the loopback dashboard, configure the SDK, import journals and back up data. |
 | [Foundry setup](foundry-setup.md) | Create resources, configure authentication and deploy the browser app. |
+| [Google Cloud setup](gcp-setup.md) | Deploy Cloud Run/GCS resources, configure Google authentication, verify and clean up. |
 | [Using Backprop](interface.md) | Compare runs, explore charts and inspect logs, files and artifacts. |
 | [Examples](../examples/README.md) | Run training, artifact pipelines, shared writers and offline sync. |
 

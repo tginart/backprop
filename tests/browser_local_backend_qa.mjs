@@ -17,8 +17,10 @@ import {createInterface} from 'node:readline';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PYTHON = process.env.BACKPROP_PYTHON || 'python3';
 const LIVE_FOUNDRY = Boolean(process.env.BACKPROP_TEST_FOUNDRY_CONFIG);
-const project = LIVE_FOUNDRY ? `backprop-browser-verification-${randomUUID().slice(0, 12)}` : 'local-smoke';
-const entity = LIVE_FOUNDRY ? 'verification' : 'local';
+const LIVE_GCP = Boolean(process.env.BACKPROP_TEST_GCP_CONFIG);
+const LIVE = LIVE_FOUNDRY || LIVE_GCP;
+const project = LIVE ? `backprop-browser-verification-${randomUUID().slice(0, 12)}` : 'local-smoke';
+const entity = LIVE ? 'verification' : 'local';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const directory = await mkdtemp(join(tmpdir(), 'backprop-local-browser-'));
 const env = {...process.env, PYTHONPATH: process.env.BACKPROP_TEST_PACKAGE_PATH || join(ROOT, 'sdk')};
@@ -34,7 +36,7 @@ server.stderr.on('data', chunk => { diagnostics += chunk; });
  * Input: A child process and a predicate for its output lines.
  * Output: The first matching line or an explicit timeout failure.
  */
-function waitLine(child, predicate, timeoutMs = LIVE_FOUNDRY ? 120000 : 20000) {
+function waitLine(child, predicate, timeoutMs = LIVE ? 180000 : 20000) {
     return new Promise((resolve, reject) => {
         const lines = createInterface({input: child.stdout});
         const timer = setTimeout(() => finish(new Error(`Process marker timeout: ${diagnostics}`)), timeoutMs);
@@ -52,9 +54,16 @@ function waitLine(child, predicate, timeoutMs = LIVE_FOUNDRY ? 120000 : 20000) {
 
 try {
     const startup = await waitLine(server, line => line.startsWith('Backprop dashboard: '));
-    const origin = startup.slice('Backprop dashboard: '.length).replace(/\/$/, '');
+    let origin = startup.slice('Backprop dashboard: '.length).replace(/\/$/, '');
     let connectionPath = join(directory, 'data/connection.json');
     let liveConfig, liveToken;
+    if (LIVE_GCP) {
+        connectionPath = process.env.BACKPROP_TEST_GCP_CONFIG;
+        liveConfig = JSON.parse(await readFile(connectionPath, 'utf8'));
+        origin = liveConfig.host;
+        liveToken = process.env.BACKPROP_GCP_ACCESS_TOKEN;
+        assert(liveToken, 'Set BACKPROP_GCP_ACCESS_TOKEN for browser acceptance');
+    }
     if (LIVE_FOUNDRY) {
         liveConfig = JSON.parse(await readFile(process.env.BACKPROP_TEST_FOUNDRY_CONFIG, 'utf8'));
         liveConfig = {...liveConfig, backend: 'foundry', client_id: 'browser-verification-client', app_url: `${origin}/`};
@@ -75,7 +84,7 @@ try {
             BACKPROP_CONFIG: connectionPath,
             BACKPROP_TEST_PROJECT: project, BACKPROP_TEST_ENTITY: entity,
             BACKPROP_TEST_CAPTURE_OFFSETS: LIVE_FOUNDRY ? '1' : '0',
-            BACKPROP_TEST_RUN_ID: LIVE_FOUNDRY ? `browser-${randomUUID()}` : 'browser-smoke',
+            BACKPROP_TEST_RUN_ID: LIVE ? `browser-${randomUUID()}` : 'browser-smoke',
             ...(liveToken ? {BACKPROP_TOKEN: liveToken} : {})}});
     trainer.stderr.on('data', chunk => { diagnostics += chunk; });
     const readyLine = await waitLine(trainer, line => line.includes('"ready": true'));
@@ -83,10 +92,16 @@ try {
     browser = await chromium.launch({headless: true,
         executablePath: process.env.CHROMIUM_EXECUTABLE});
     const context = await browser.newContext({viewport: {width: 1440, height: 1000}});
+    if (LIVE_GCP) await context.addInitScript(({id, token}) => {
+        sessionStorage.setItem(`backprop.google.session.${id}`, JSON.stringify({
+            accessToken: token, expiresAt: Date.now() + 3000000,
+            identity: {userId: 'verification', displayName: 'Google verification'},
+        }));
+    }, {id: liveConfig.gcp_id, token: liveToken});
     if (LIVE_FOUNDRY) await configureFoundryBrowser(context, {origin, config: liveConfig,
         token: liveToken, project, initialOffsets});
     const page = await context.newPage();
-    page.setDefaultTimeout(LIVE_FOUNDRY ? 180000 : 30000);
+    page.setDefaultTimeout(LIVE ? 180000 : 30000);
     page.on('pageerror', error => errors.push(error.message));
     page.on('request', req => network.push({url: req.url(), headers: req.headers()}));
     await page.addInitScript(() => {
@@ -101,18 +116,19 @@ try {
     await chart.waitFor();
     await page.locator('[data-plotly-ready="true"]').waitFor();
     assert(await page.getByText('local table row', {exact: true}).count());
-    assert(await page.getByText(LIVE_FOUNDRY ? 'Connected to Foundry' : 'Connected locally', {exact: true}).count());
+    assert(await page.getByText(LIVE_GCP ? 'Connected to Google Cloud' : LIVE_FOUNDRY ? 'Connected to Foundry' : 'Connected locally', {exact: true}).count());
     await page.locator('[data-view="setup"]').click();
     const onboarding = await page.locator('.onboarding').textContent();
     assert.equal(onboarding.includes('FOUNDRY_TOKEN'), LIVE_FOUNDRY);
-    if (!LIVE_FOUNDRY) assert(onboarding.includes('/path/to/backprop_foundry-*.whl'));
+    if (!LIVE) assert(onboarding.includes('/path/to/backprop_foundry-*.whl'));
     const connectionDownload = page.waitForEvent('download');
     await page.locator('[data-action="download-config"]').click();
     const connectionFile = await connectionDownload;
     const connection = JSON.parse(await readFile(await connectionFile.path(), 'utf8'));
-    assert.equal(connection.backend, LIVE_FOUNDRY ? 'foundry' : 'local');
-    assert.equal(connection.host, LIVE_FOUNDRY ? liveConfig.host : origin);
-    if (!LIVE_FOUNDRY) assert.match(connection.local_id, /^[0-9a-f]{32}$/);
+    assert.equal(connection.backend, LIVE_GCP ? 'gcp' : LIVE_FOUNDRY ? 'foundry' : 'local');
+    assert.equal(connection.host, LIVE ? liveConfig.host : origin);
+    if (!LIVE) assert.match(connection.local_id, /^[0-9a-f]{32}$/);
+    if (LIVE_GCP) assert.equal(connection.gcp_id, liveConfig.gcp_id);
     await page.locator('[data-view="workspace"]').first().click();
     const slider = chart.locator('[data-panel-smoothing]');
     await slider.evaluate(node => {
@@ -153,7 +169,7 @@ try {
     await page.evaluate(() => window.localPoll());
     await page.waitForFunction(() =>
         !document.querySelector('[data-action="refresh"]').disabled);
-    const metricDeadline = Date.now() + (LIVE_FOUNDRY ? 60000 : 10000);
+    const metricDeadline = Date.now() + (LIVE ? 60000 : 10000);
     let metricVisible = false;
     while (!metricVisible && Date.now() < metricDeadline) {
         metricVisible = await page.evaluate(async () => {
@@ -189,9 +205,11 @@ try {
     await page.getByRole('button', {name: 'Send stop request', exact: true}).click();
     await stopped;
     assert(!network.some(item => item.url.includes('/multipass/')));
-    if (!LIVE_FOUNDRY) assert(network.every(item => !item.headers.authorization));
+    if (!LIVE) assert(network.every(item => !item.headers.authorization));
+    if (LIVE_GCP) assert(network.filter(item => item.url.startsWith(origin + '/api/'))
+        .every(item => item.headers.authorization === `Bearer ${liveToken}`));
     assert.deepEqual(errors, []);
-    if (!LIVE_FOUNDRY) {
+    if (!LIVE) {
         const foundryConfig = {...connection, backend: 'foundry', host: 'https://foundry.example',
             client_id: 'browser-fixture-client', app_url: `${origin}/`};
         const foundryContext = await browser.newContext();
@@ -208,7 +226,7 @@ try {
         assert.deepEqual(errors, []);
         await foundryContext.close();
     }
-    console.log(`PASS: installed dashboard, ${LIVE_FOUNDRY ? 'real Foundry data' : 'real local data and Foundry fixture'}, live metrics, tables, Plotly, artifacts, workspace persistence, and cooperative stop; project=${project}`);
+    console.log(`PASS: installed dashboard, ${LIVE_GCP ? 'real GCP data' : LIVE_FOUNDRY ? 'real Foundry data' : 'real local data and Foundry fixture'}, live metrics, tables, Plotly, artifacts, workspace persistence, and cooperative stop; project=${project}`);
 } finally {
     await browser?.close();
     trainer?.kill('SIGTERM');

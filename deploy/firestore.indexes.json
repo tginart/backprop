@@ -1,0 +1,7 @@
+{
+  "indexes": [
+    ["field-path=partition,order=ascending", "field-path=offset,order=ascending"],
+    ["field-path=partition,order=ascending", "field-path=scope_keys,array-config=contains", "field-path=sort_key,order=ascending"],
+    ["field-path=partition,order=ascending", "field-path=scope_keys,array-config=contains", "field-path=sort_key,order=descending"]
+  ]
+}

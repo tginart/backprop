@@ -3,9 +3,14 @@
   "scope": "All public source files except this manifest itself; no Git metadata.",
   "files": [
     {
+      "path": ".gcloudignore",
+      "bytes": 229,
+      "sha256": "01909e1eee51b6de3dde7bd18e71f0c62d97421bea2d969a3f3929eb0e0b1cc3"
+    },
+    {
       "path": ".github/workflows/test.yml",
-      "bytes": 1615,
-      "sha256": "5dc6bd90a3c33d1969c82850da2b59503808b4e4eabed70e1cfb875e43f61a96"
+      "bytes": 1890,
+      "sha256": "a64a0615bdb471ba17194d745a3e4d589c5a0b1ce82c4573b68e7e8ba6b5da2c"
     },
     {
       "path": ".gitignore",
@@ -14,8 +19,8 @@
     },
     {
       "path": "CONTRIBUTING.md",
-      "bytes": 3451,
-      "sha256": "4997a788e454b6220f200b2c4ff49b2c09717d07a229c7c2bc6ab1b6b2fdae3a"
+      "bytes": 3886,
+      "sha256": "87cf33cd9b03d01e803e6c95a6f610a134077631cb5ab83e2f089777cfb5b1dc"
     },
     {
       "path": "LICENSE",
@@ -24,8 +29,8 @@
     },
     {
       "path": "MANIFEST.in",
-      "bytes": 438,
-      "sha256": "75a6a6a4f8db95e4ac3cf0744afe2fc625d346092d1aec83bc34e23348fad71d"
+      "bytes": 473,
+      "sha256": "aac15a8dfb4a1b481a4f8a9d98436232d3a21bfb608ae2d65b08ac527a4d1677"
     },
     {
       "path": "NOTICE",
@@ -34,8 +39,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 14877,
-      "sha256": "32167b4fe9a6673b9eca35ea83a78a86b92b22f0e04f764460927296428337e1"
+      "bytes": 15135,
+      "sha256": "4c411437bb29ada576aaa518f4797b61c0c93d4d231b6f857bed11bd9e7a7099"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -69,8 +74,8 @@
     },
     {
       "path": "backend/README.md",
-      "bytes": 3267,
-      "sha256": "eac8706006f19b66a7ba1f04e99b0d8093aab80e09b4edaf66d940b43c6a16b7"
+      "bytes": 3700,
+      "sha256": "7add05323913ac3c99dc3aaa376fabf71470e4cb9f39ece73daa0a7642d11d6f"
     },
     {
       "path": "backend/__init__.py",
@@ -99,13 +104,13 @@
     },
     {
       "path": "backend/connection.py",
-      "bytes": 6475,
-      "sha256": "491d83b3b8e44a6e985e01a802e9cbdde7f4475bfb74d0ae01cc6d462482e55d"
+      "bytes": 7682,
+      "sha256": "fb11cd042ee3b6d9f2fc793940dba8857d58f23d2f0af31379d32e46789d0675"
     },
     {
       "path": "backend/dashboard_assets.json",
-      "bytes": 1970,
-      "sha256": "337491d1bdc7d9e2684d36d97c176f4fa0ef95f6cd7b0a4fa0f4a4ec59c37367"
+      "bytes": 1991,
+      "sha256": "d878916bf6a07cf00c1902f0555ab6baf9ff75270f2d3bade79bd7422da77455"
     },
     {
       "path": "backend/foundry/__init__.py",
@@ -143,6 +148,41 @@
       "sha256": "2b20f51453c68dffbf9378040336a07f8d34ce2505b4a3fd7e914fe780c98ac7"
     },
     {
+      "path": "backend/gcp/__init__.py",
+      "bytes": 194,
+      "sha256": "66f2cd16dd438f6ff02cc6ae52b85e6f6e9c58e3d62dc88b20dccbbe6b16073c"
+    },
+    {
+      "path": "backend/gcp/auth.py",
+      "bytes": 4220,
+      "sha256": "cc45b6c5e4a7589ab3a7db66d159529af8a921a9f9a3e29fe8040f8e10529783"
+    },
+    {
+      "path": "backend/gcp/config.py",
+      "bytes": 1759,
+      "sha256": "4ac99f627d7258005767929963798649ba3f6c4cca00d7047fc7805d6ac89454"
+    },
+    {
+      "path": "backend/gcp/database.py",
+      "bytes": 16905,
+      "sha256": "e6911e0b3af0da712901b97e3ee6f8632d9a3ee6b98ae538134a1f3c6fa98a05"
+    },
+    {
+      "path": "backend/gcp/queries.py",
+      "bytes": 4499,
+      "sha256": "c537be424e532a2ea9c33652e3535d9348c57b55717301a48333a8f7ab93422b"
+    },
+    {
+      "path": "backend/gcp/server.py",
+      "bytes": 13052,
+      "sha256": "81a62962cd2f40c0951bfc4ec03f4ddeae7a6644671592c3b8a6645f373670fb"
+    },
+    {
+      "path": "backend/gcp/store.py",
+      "bytes": 5147,
+      "sha256": "9fbaef3acbf5f08d4c24a494b9362d44c3e0b5a83a825b2e2a8407ccdbf2b086"
+    },
+    {
       "path": "backend/http_controls.py",
       "bytes": 4976,
       "sha256": "a9159b2c31e0c6d580e43ac7c24ac1cebbd23994315cb5ac39a81a32c2678253"
@@ -169,8 +209,8 @@
     },
     {
       "path": "backend/local/database.py",
-      "bytes": 15844,
-      "sha256": "4e0a2f11063171d7c8adf431b26552a83c9403937857bffc2520d4f025462abb"
+      "bytes": 14307,
+      "sha256": "d1977ba420ad32e5eab7374bb7f919c1b2c784e6f6081d98bd8a50240fcf425d"
     },
     {
       "path": "backend/local/journal_import.py",
@@ -179,8 +219,8 @@
     },
     {
       "path": "backend/local/queries.py",
-      "bytes": 3527,
-      "sha256": "f07ee20a285571231e155fb667ce5fd786c6f71e6bb6051ca379cde70730ea66"
+      "bytes": 3485,
+      "sha256": "bd160f31988a2397ac8ab9b5e258622382018135c2775677da68f4eb36c21251"
     },
     {
       "path": "backend/local/server.py",
@@ -198,6 +238,11 @@
       "sha256": "1457b10d36f7911c3ebab78dcde07ea4eab493fdca7096f8fff07850907156b8"
     },
     {
+      "path": "backend/records.py",
+      "bytes": 2040,
+      "sha256": "0a79b50b0709dbf205b259c4419e33317f18ec9f0ec10a5eeae0cd4691e9a993"
+    },
+    {
       "path": "backend/state.example.json",
       "bytes": 273,
       "sha256": "2e52dbe310cad902f07e37305671392a40e3557db3bb473a8ece33fdd076e9f6"
@@ -206,6 +251,11 @@
       "path": "backend/verify.py",
       "bytes": 358,
       "sha256": "c1ae31c9e6eb400f75c654b4c486b4f5e94d36378af8e12d5b566315cbd1501e"
+    },
+    {
+      "path": "deploy/Dockerfile.gcp",
+      "bytes": 169,
+      "sha256": "f5307f1ab58044e0665879c67c3e85e0d73358956f7af3056103d72becb239ef"
     },
     {
       "path": "deploy/bootstrap.py",
@@ -233,9 +283,24 @@
       "sha256": "3562b77f1faf0f5bffd12b04a88cec3945599223a3be0f062d6b1c2e34e75647"
     },
     {
+      "path": "deploy/firestore.indexes.json",
+      "bytes": 370,
+      "sha256": "f83beb1755c1525ef2a09d3609cbe9cb5b81f9c0c943d6ed9139bd1ed14c18ac"
+    },
+    {
       "path": "deploy/foundry_api.py",
       "bytes": 4266,
       "sha256": "8fffbda73a5c0c900cb6f82fbe21ae8b08a09a8c5bcff5b2490286b262fea04a"
+    },
+    {
+      "path": "deploy/gcp.example.json",
+      "bytes": 307,
+      "sha256": "68c3d8e51cbedab87ea3018120ba2be7debd84ed6ca7c09d6674b316add39373"
+    },
+    {
+      "path": "deploy/gcp_deploy.py",
+      "bytes": 21770,
+      "sha256": "0d479c276b48aaffcd38c5074952210f056d24015104b32e512cc69eabb1c252"
     },
     {
       "path": "deploy/local_config.py",
@@ -254,13 +319,13 @@
     },
     {
       "path": "docs/README.md",
-      "bytes": 2077,
-      "sha256": "861fc4922fd789ad02dde68cc96ded5a67a5fc1a123881313de12ca5bdb2df08"
+      "bytes": 2204,
+      "sha256": "b6dbd889aedf8e73450367c6362ad4e84d70c36cfd109487eeb76d9ac382d6e7"
     },
     {
       "path": "docs/backend-verification.md",
-      "bytes": 5609,
-      "sha256": "e8ec796ff3f32a26ebbf5fdba31e6d27e82ac33703245d435ff9b2dd5474af40"
+      "bytes": 6301,
+      "sha256": "446adefe531598c14ee139bf24b72cf62b564115e9474874685e70a1464c5d2c"
     },
     {
       "path": "docs/compatibility.md",
@@ -281,6 +346,11 @@
       "path": "docs/foundry-setup.md",
       "bytes": 17634,
       "sha256": "5443c80b8ccaf541bda6844ae3f7e1627672bdd2d979f98226999b1c48595bc8"
+    },
+    {
+      "path": "docs/gcp-setup.md",
+      "bytes": 19719,
+      "sha256": "2f08939885ed71087c4c8971186e45b9d69b30f3ff565b4671ea4194a13e75ae"
     },
     {
       "path": "docs/interface.md",
@@ -369,8 +439,8 @@
     },
     {
       "path": "pyproject.toml",
-      "bytes": 1893,
-      "sha256": "70b0f497641f4289b7d8953d85b09243fd97960e1617c86b8b253684efe12d59"
+      "bytes": 1965,
+      "sha256": "5a433b07458b982db460fc95c523500783d35142d8eaf3735f72caeebd5a298b"
     },
     {
       "path": "sdk/backprop/__init__.py",
@@ -1384,8 +1454,8 @@
     },
     {
       "path": "setup.py",
-      "bytes": 3013,
-      "sha256": "5be000a0e0bc1099107221bec97da46052b5805f6fa378b5cd64baebb0b6675a"
+      "bytes": 3051,
+      "sha256": "6b94f3e0c54f2b934fa366e775f5396ceb6d9f3614dfe2c89d2ebae53cc2437c"
     },
     {
       "path": "tests/annotation_reference_probe.py",
@@ -1534,8 +1604,8 @@
     },
     {
       "path": "tests/backend_acceptance.py",
-      "bytes": 13042,
-      "sha256": "8f8ed974e14f5eaf3eb5be6a9cf0d726f77ff67be30fa8a7cb7d1fe513fc0513"
+      "bytes": 13668,
+      "sha256": "d102f1a53ccf130d1eedd4ba4832bf8d7484d2afa3f8f550bb5de38a9dac89e7"
     },
     {
       "path": "tests/browser_annotations_qa.mjs",
@@ -1569,8 +1639,8 @@
     },
     {
       "path": "tests/browser_local_backend_qa.mjs",
-      "bytes": 12811,
-      "sha256": "a8bf80072c879d81081a92c5f2050c91253f7a84c4e7d6e6f6c3d0a88856a049"
+      "bytes": 13846,
+      "sha256": "0f1e2557232ea5c62a60081724c97749e71c32ec8ba06800205f1fd2da1c25f5"
     },
     {
       "path": "tests/browser_maps_qa.mjs",
@@ -2484,8 +2554,8 @@
     },
     {
       "path": "tests/test_deploy.py",
-      "bytes": 22663,
-      "sha256": "522c0f157bea540cb401953f3db8a0ae2fda6796b350f1fd9b605c160c70d6be"
+      "bytes": 22682,
+      "sha256": "12b877eda5b3102e567f17e7db6ee011d756c3b7705a3941106df1b861ee2683"
     },
     {
       "path": "tests/test_deployment_config.py",
@@ -2691,6 +2761,21 @@
       "path": "tests/test_frontend_workspace_store.mjs",
       "bytes": 25635,
       "sha256": "5d2542252a92fcd6dedfa92b766c4b121e8a61df8677cd1057c019fb49773836"
+    },
+    {
+      "path": "tests/test_gcp_backend.py",
+      "bytes": 27370,
+      "sha256": "93ade23a59932ff1ac4cc9fcf2c9e3926b2cb4f30e2198f52cbed696569a1686"
+    },
+    {
+      "path": "tests/test_gcp_deploy.py",
+      "bytes": 13099,
+      "sha256": "c97bdee4f40877b71302cd8f2ab5e8661b0b91f3a7bad4eb9aca2e4dfae5c8ea"
+    },
+    {
+      "path": "tests/test_gcp_frontend.mjs",
+      "bytes": 7875,
+      "sha256": "6719d26327a4fe999cb65c0bd1334c4111f53e372ed81f698bf87d51ff755f47"
     },
     {
       "path": "tests/test_genuine_provider_contracts.py",
@@ -3563,9 +3648,19 @@
       "sha256": "7ad6a149ab2055638738df9d5ca4f7d8651226ce4c1529fa63fd94bd50f2e5d9"
     },
     {
+      "path": "tools/benchmark_gcp.py",
+      "bytes": 7960,
+      "sha256": "194db90d9b65dbcdc86337cd3e9f7383d1aa26b760891859bf327780c0272555"
+    },
+    {
+      "path": "tools/firestore_emulator.py",
+      "bytes": 3625,
+      "sha256": "a1856636243b2e019d35dfdeec515266d03fd30fb4b21a3b2823c277679d7768"
+    },
+    {
       "path": "tools/verify_backends.py",
-      "bytes": 8218,
-      "sha256": "0d478ce587dd446653b987f6279aae5b8e2bf3281003a09c817cfdb4f8567fb3"
+      "bytes": 8954,
+      "sha256": "d2da6cdf50e7acb7f7f2ef5311b489d88e15ab373b757e6bfb9c71dbfab4c831"
     },
     {
       "path": "tools/verify_optional_runtimes.py",
@@ -3579,8 +3674,8 @@
     },
     {
       "path": "tools_check_release.py",
-      "bytes": 5140,
-      "sha256": "f29b7dac7a77255e21743889be0cb7ae4911c1af70d5478fae94da53d3796ddc"
+      "bytes": 5161,
+      "sha256": "87f76f51664de66d8e813c8f330a298b83d71232c72d81da1f510c950682a9ba"
     },
     {
       "path": "tools_smoke_release.py",
@@ -3649,13 +3744,18 @@
     },
     {
       "path": "web/backends/connection.js",
-      "bytes": 2061,
-      "sha256": "d752fd9b35894624f46ca075f0efd594269cf4290596ae40509444b171d8fab1"
+      "bytes": 2168,
+      "sha256": "6f476bf06ddd8ab7b1a14905b3ec1c75f03f360583ec85f5e4768295b36e46cc"
     },
     {
       "path": "web/backends/foundry.js",
       "bytes": 10972,
       "sha256": "c6cc0583e38580603d667c5d9639aaeb4ba82df54fd7953470d7d5fdf7c9bc15"
+    },
+    {
+      "path": "web/backends/gcp.js",
+      "bytes": 8089,
+      "sha256": "b3d4bd391bbc5c17655bbaebbbae5d3cf1b046c9c580e3a619cfb8b55aed440f"
     },
     {
       "path": "web/backends/http.js",

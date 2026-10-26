@@ -25,6 +25,17 @@ PYTHONPATH=sdk python -m unittest discover -s tests -p 'test_*.py'
 node --test tests/test_*.mjs
 ```
 
+The optional GCP contract tests use Google's Firestore emulator and Java 21.
+Install `.[gcp]`, then run the Python suite through the checksum-verified harness:
+
+```bash
+python tools/firestore_emulator.py -- python -m unittest discover \
+    -s tests -p 'test_*.py'
+```
+
+Without a loopback emulator, the native Firestore tests report an explicit skip.
+CI uses the harness so those tests execute without cloud credentials or resources.
+
 Some compatibility tests need the W&B 0.30.0 source tree. Set
 `BACKPROP_REFERENCE_SOURCE` to its location, or use the distribution verifier below,
 which downloads the source at a fixed commit and checks its hash.

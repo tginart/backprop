@@ -11,7 +11,7 @@ PUBLIC_DOCUMENTATION = frozenset({
  'THIRD_PARTY_NOTICES.md', 'docs/README.md', 'docs/compatibility.md',
  'docs/dependency-security.md', 'docs/distributed-logging.md',
  'docs/foundry-setup.md', 'docs/interface.md', 'docs/python-api-support.md',
- 'docs/local-backend.md', 'docs/backend-verification.md',
+ 'docs/local-backend.md', 'docs/backend-verification.md', 'docs/gcp-setup.md',
  'docs/updates.md', 'examples/README.md', 'tests/fixtures/MAP-FIXTURES.md',
 })
 

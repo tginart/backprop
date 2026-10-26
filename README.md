@@ -1,11 +1,15 @@
 # Backprop
 
-Backprop brings W&B-style experiment tracking to Palantir Foundry or a local SQLite backend.
+Backprop brings W&B-style experiment tracking to Palantir Foundry, local SQLite, or Google Cloud.
 
 It provides a familiar Python API for experiment logging, distributed training,
 artifacts and experiment inspection. Choose Foundry for managed storage, hosting,
 authentication and permissions, or run the dashboard and storage API on your machine.
 Backprop is independent of Weights & Biases and Palantir.
+
+For Cloud Run hosting, Firestore events, GCS artifacts, and Google authentication, see
+[Google Cloud deployment](docs/gcp-setup.md). All three backends use the same
+Python APIs and dashboard.
 
 ![Backprop workspace comparing training and validation
 metrics](assets/images/workspace.png)
@@ -281,7 +285,7 @@ guide](docs/python-api-support.md) for runtime requirements and limitations.
 ## Architectural Overview
 
 The repository separates the SDK (`sdk/backprop/`), dashboard (`web/`), and backend
-adapters (`backend/foundry/` and `backend/local/`). One connection configuration
+adapters (`backend/foundry/`, `backend/local/`, and `backend/gcp/`). One connection configuration
 selects the backend. Both clients read the same event schema to reconstruct runs,
 histories and artifact relationships. Browser authentication adapters live in
 `web/backends/`; shared Python connection and HTTP code lives under `backend/`.
@@ -293,7 +297,7 @@ histories and artifact relationships. Browser authentication adapters live in
 | Values and adapters | [`media.py`](sdk/backprop/media.py), [`integration`](sdk/backprop/integration/__init__.py) | Tables, media, artifacts, plotting, training hooks and optional framework callbacks. These use the same run and journal rather than separate upload paths. |
 | Experiment inspection | [`apis/public/api.py`](sdk/backprop/apis/public/api.py), [`replay.py`](sdk/backprop/apis/public/replay.py) | `Api` queries, returned run/file/artifact objects, event replay and public edits. |
 | Browser app | [`web/app.mjs`](web/app.mjs), [`api.js`](web/api.js), [`model.mjs`](web/model.mjs) | Navigation and views, authenticated reads, and reconstruction of the run model. Chart, table and media viewers live in separate modules. |
-| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py) | Foundry authentication and HTTP integration, or a loopback server with SQLite and artifact storage. |
+| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py), [`gcp/database.py`](backend/gcp/database.py) | Foundry integration, local SQLite storage, or transactional Firestore events with GCS artifacts. |
 | Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py) | Provision resources and package/publish the static app. Foundry resource and deployment tools remain separate from the local server. |
 
 The [documentation index](docs/README.md) links the installation, migration and
