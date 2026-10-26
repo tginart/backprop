@@ -8,6 +8,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -23,6 +24,21 @@ CONFIG = {"project": "customer-project", "region": "europe-west1", "name": "back
 
 class GcpDeploymentTests(unittest.TestCase):
     """Exercise deployment and failure ledgers without Google credentials."""
+
+    def test_requirements_need_no_config_ledger_or_google_credentials(self):
+        output = io.StringIO()
+        with patch.object(sys, "argv", ["gcp_deploy.py", "--requirements"]), \
+                patch("subprocess.run", side_effect=AssertionError("Cloud call")), \
+                patch("sys.stdout", output):
+            DEPLOY.main()
+        requirements = json.loads(output.getvalue())
+        self.assertIn("run.googleapis.com", requirements["enabled_apis"])
+        permissions = requirements["deployer"]["permissions"]
+        self.assertIn("iam.serviceAccounts.actAs", permissions)
+        self.assertIn("storage.buckets.setIamPolicy", permissions)
+        self.assertNotIn("serviceusage.services.enable", permissions)
+        self.assertNotIn("resourcemanager.projects.setIamPolicy", permissions)
+        self.assertIn("OAuth Web client", requirements["browser_authentication"])
 
     def test_explicit_project_resources_connection_and_cleanup(self):
         calls = []
@@ -43,6 +59,8 @@ class GcpDeploymentTests(unittest.TestCase):
             self.assertEqual(json.loads(Path(result["connection_path"]).read_text())["backend"], "gcp")
             self.assertTrue(all(command[-3:-1] == ["--project", CONFIG["project"]] for command in calls))
             self.assertTrue(any("--no-invoker-iam-check" in command for command in calls))
+            self.assertFalse(any(command[1:3] == ["services", "enable"] for command in calls))
+            self.assertFalse(any(command[1] == "projects" for command in calls))
             result = DEPLOY.cleanup(state, run=run)
             self.assertEqual(result["status"], "deleted")
             self.assertEqual(result["owned"], [])

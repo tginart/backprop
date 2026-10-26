@@ -3,6 +3,7 @@ Purpose: Deploy an isolated Cloud Run/GCS installation and remove its owned reso
 Input: Explicit Google project settings and authenticated gcloud credentials.
 Output: A resource ledger and a credential-free SDK connection file.
 Note: Cleanup removes only resources successfully created by this invocation.
+Note: The project must already have the required APIs and IAM permissions.
 """
 from __future__ import annotations
 
@@ -17,6 +18,95 @@ from typing import Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REQUIRED_APIS = (
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "iam.googleapis.com",
+    "run.googleapis.com",
+    "storage.googleapis.com",
+)
+# These permissions cover this script's deploy and cleanup commands. They do not
+# authorize project-wide IAM changes or API enablement.
+REQUIRED_DEPLOYER_PERMISSIONS = (
+    "artifactregistry.dockerimages.get",
+    "artifactregistry.repositories.create",
+    "artifactregistry.repositories.delete",
+    "artifactregistry.repositories.downloadArtifacts",
+    "artifactregistry.repositories.get",
+    "cloudbuild.builds.create",
+    "cloudbuild.builds.get",
+    "cloudbuild.builds.list",
+    "cloudbuild.operations.get",
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.get",
+    "resourcemanager.projects.get",
+    "run.operations.get",
+    "run.services.create",
+    "run.services.delete",
+    "run.services.get",
+    "run.services.list",
+    "run.services.setIamPolicy",
+    "run.services.update",
+    "serviceusage.services.use",
+    "storage.buckets.create",
+    "storage.buckets.delete",
+    "storage.buckets.get",
+    "storage.buckets.getIamPolicy",
+    "storage.buckets.setIamPolicy",
+    "storage.buckets.update",
+    "storage.objects.create",
+    "storage.objects.delete",
+    "storage.objects.get",
+    "storage.objects.list",
+)
+REQUIRED_BUILD_PERMISSIONS = (
+    "artifactregistry.repositories.downloadArtifacts",
+    "artifactregistry.repositories.uploadArtifacts",
+    "storage.buckets.get",
+    "storage.objects.create",
+    "storage.objects.get",
+    "storage.objects.list",
+)
+REQUIRED_RUNTIME_PERMISSIONS = (
+    "storage.objects.create",
+    "storage.objects.delete",
+    "storage.objects.get",
+    "storage.objects.list",
+    "storage.objects.update",
+)
+
+
+def deployment_requirements() -> dict:
+    """
+    Purpose: Describe project prerequisites without Google credentials or mutations.
+    Input: None.
+    Output: Required APIs and permissions for each deployment identity.
+    """
+    return {
+        "enabled_apis": list(REQUIRED_APIS),
+        "deployer": {
+            "scope": "Selected project and this installation's resources",
+            "permissions": list(REQUIRED_DEPLOYER_PERMISSIONS),
+        },
+        "cloud_build": {
+            "scope": "Staging/log bucket and image repository",
+            "permissions": list(REQUIRED_BUILD_PERMISSIONS),
+        },
+        "runtime": {
+            "scope": "Installation bucket; the script grants roles/storage.objectAdmin",
+            "permissions": list(REQUIRED_RUNTIME_PERMISSIONS),
+        },
+        "service_agents": {
+            "cloud_build": "roles/cloudbuild.serviceAgent",
+            "cloud_run": "roles/run.serviceAgent",
+        },
+        "browser_authentication": (
+            "Google requires manual creation and configuration of an OAuth Web "
+            "client. IAM permissions do not permit API-based client creation."
+        ),
+    }
 
 
 def deploy(config: dict, state_path: Path, *, run: Callable = subprocess.run) -> dict:
@@ -181,9 +271,18 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, help="Explicit deployment JSON; see gcp.example.json")
-    parser.add_argument("--state", type=Path, required=True, help="Private resource ledger path")
+    parser.add_argument("--state", type=Path, help="Private resource ledger path")
     parser.add_argument("--cleanup", action="store_true", help="Delete only resources owned by this ledger")
+    parser.add_argument(
+        "--requirements", action="store_true",
+        help="Print required APIs and IAM permissions without cloud operations",
+    )
     args = parser.parse_args()
+    if args.requirements:
+        print(json.dumps(deployment_requirements(), indent=2))
+        return
+    if not args.state:
+        parser.error("--state is required for deployment or cleanup")
     if args.cleanup:
         state = cleanup(args.state)
     else:

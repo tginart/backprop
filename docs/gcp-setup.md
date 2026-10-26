@@ -14,14 +14,24 @@ operator configuration. The runtime account gets `roles/storage.objectAdmin`
 on its bucket. Cloud Build uses the project's configured build identity; that
 identity needs access to the staging bucket and image repository.
 
-Authenticate gcloud and enable the required APIs in your selected project:
+Use an existing billed project with authenticated gcloud credentials. Required
+APIs and IAM permissions must already be available. Print the prerequisites
+without credentials, a resource ledger, or any cloud operation:
 
 ```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-    artifactregistry.googleapis.com iam.googleapis.com storage.googleapis.com \
-    --project YOUR_PROJECT
+python deploy/gcp_deploy.py --requirements
 cp deploy/gcp.example.json deploy/gcp.local.json
 ```
+
+The source constants in `deploy/gcp_deploy.py` list the exact API names and
+permissions by identity. The deployer needs permission to create, inspect, and
+delete installation resources, submit builds, attach the runtime account, and
+set the installation bucket's IAM policy. The configured Cloud Build identity
+needs object access to the staging/log bucket and image read/write access to the
+repository. Google's Cloud Build and Cloud Run service agents must retain their
+standard service-agent roles. These are prerequisites; the script does not enable
+APIs or grant project-wide roles. It grants only the new runtime account's
+object access on the new installation bucket.
 
 Edit the copied file. Choose a new installation name, project and region. Add
 the Google user or service-account emails permitted to use the installation.
@@ -32,6 +42,17 @@ Platform. Configure its consent screen and test users as required by Google.
 Put its public client ID in `client_id`. After deployment, add the service's exact
 HTTPS origin to the client's authorized JavaScript origins. No client secret is
 needed. An empty client ID supports SDK-only installations.
+
+This browser step cannot be bootstrapped through the standard Google OAuth API.
+Google explicitly requires
+[manual OAuth client creation and configuration](https://developers.google.com/identity/protocols/oauth2/resources/best-practices#manual_creation_and_configuration_of_oauth_clients),
+regardless of IAM permissions. The former
+[IAP OAuth Admin API was shut down](https://docs.cloud.google.com/iap/docs/deprecations)
+on March 19, 2026. Google-managed IAP clients support automatic setup for users
+within a Google organization, but
+[external users still require a custom OAuth client](https://docs.cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run#manage_user_or_group_access).
+This adapter uses Google Identity Services, not IAP. Deployment readiness confirms
+the service and connection file; it does not prove interactive browser sign-in.
 
 ```bash
 python deploy/gcp_deploy.py --config deploy/gcp.local.json \
