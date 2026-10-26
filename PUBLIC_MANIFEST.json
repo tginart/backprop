@@ -154,8 +154,8 @@
     },
     {
       "path": "backend/gcp/auth.py",
-      "bytes": 3623,
-      "sha256": "9796641811c4916a5f2e5a7c30053b552f4273d1dd157b6a18c5ccec281a2726"
+      "bytes": 4220,
+      "sha256": "cc45b6c5e4a7589ab3a7db66d159529af8a921a9f9a3e29fe8040f8e10529783"
     },
     {
       "path": "backend/gcp/config.py",
@@ -169,8 +169,8 @@
     },
     {
       "path": "backend/gcp/server.py",
-      "bytes": 9767,
-      "sha256": "2330ada61d626c7004df620a1a98da6b411e057c5f43fc14f2b21f056c7e6c22"
+      "bytes": 9954,
+      "sha256": "04c69a53b081404cf958f370bc9e950cfc8cdc3e9701b10b3b190da8f5c419bc"
     },
     {
       "path": "backend/gcp/store.py",
@@ -2749,8 +2749,8 @@
     },
     {
       "path": "tests/test_gcp_backend.py",
-      "bytes": 15431,
-      "sha256": "d220cc5378ddbec3542b7526322034a1fe580477ff63f5f1dc00337289b438f6"
+      "bytes": 19471,
+      "sha256": "091b84bc72e9e5b5927449ed021126cd5dcd4d4bb8b8b1b59d79018a44e8fe9c"
     },
     {
       "path": "tests/test_gcp_deploy.py",
@@ -2759,8 +2759,8 @@
     },
     {
       "path": "tests/test_gcp_frontend.mjs",
-      "bytes": 4352,
-      "sha256": "45b06a691c7291ca61b0ce2e30a61ff9752b263078033a0ea454f89847725bde"
+      "bytes": 7560,
+      "sha256": "053a4f09e4a935de479d30a0d1c6ce5573e41c935270d31367c1909c1f4fe194"
     },
     {
       "path": "tests/test_genuine_provider_contracts.py",
@@ -3729,8 +3729,8 @@
     },
     {
       "path": "web/backends/gcp.js",
-      "bytes": 7462,
-      "sha256": "d76b30a761a177630d97f45235a7aa819212685a36882469b811cc3657add206"
+      "bytes": 7646,
+      "sha256": "582ab1e40700d5d895f06c2fe37e93c8e8cd4b2fe1d87cb0dda1da96a6041afb"
     },
     {
       "path": "web/backends/http.js",

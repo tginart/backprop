@@ -85,3 +85,78 @@ test('Google connection export omits secrets and rejects unsafe origins and boun
     assert.deepEqual(adapter.getArchiveOffsets({headers: new Headers({'X-Backprop-End-Offset': '42'})}), {'0': '42'});
     assert.throws(() => adapter.getArchiveOffsets({headers: new Headers()}), /boundary/);
 });
+
+test('poll eligibility survives the renewal window and expired saved sessions can renew', async () => {
+    const state = fixture();
+    const adapter = createAdapter();
+    await adapter.initAuth(CONFIG);
+    await adapter.login();
+    const now = Date.now;
+    Date.now = () => now() + 3540001;
+    try {
+        assert.equal(adapter.getAuthState().authenticated, true);
+        if (adapter.getAuthState().authenticated) await adapter.getAccessToken();
+        assert.equal(state.calls(), 2);
+    } finally { Date.now = now; }
+    const stored = JSON.parse(state.values.get(`backprop.google.session.${CONFIG.gcp_id}`));
+    stored.expiresAt = now() - 1000;
+    state.values.set(`backprop.google.session.${CONFIG.gcp_id}`, JSON.stringify(stored));
+    const restored = createAdapter();
+    assert.equal((await restored.initAuth(CONFIG)).authenticated, true);
+    assert.equal(await restored.getAccessToken(), 'google-fixture');
+    assert.equal(state.calls(), 3);
+});
+
+test('Google MFA can finish after the ordinary network deadline', async context => {
+    const state = fixture();
+    const adapter = createAdapter();
+    await adapter.initAuth(CONFIG);
+    state.client().requestAccessToken = () => {};
+    context.mock.timers.enable({apis: ['setTimeout']});
+    const pending = adapter.login();
+    await Promise.resolve();
+    context.mock.timers.tick(31000);
+    await Promise.resolve();
+    state.client().callback({access_token: 'google-fixture', expires_in: 3600});
+    assert.equal((await pending).authenticated, true);
+});
+
+test('backend identity verification keeps its network deadline after slow consent', async context => {
+    const state = fixture();
+    const adapter = createAdapter();
+    await adapter.initAuth(CONFIG);
+    state.client().requestAccessToken = () => {};
+    let verificationSignal;
+    globalThis.fetch = async (url, {signal}) => {
+        verificationSignal = signal;
+        return new Promise(() => {});
+    };
+    context.mock.timers.enable({apis: ['setTimeout']});
+    const pending = assert.rejects(adapter.login(), {name: 'TimeoutError'});
+    await Promise.resolve();
+    context.mock.timers.tick(31000);
+    state.client().callback({access_token: 'google-fixture', expires_in: 3600});
+    await Promise.resolve();
+    assert.equal(verificationSignal.aborted, false);
+    context.mock.timers.tick(30001);
+    await pending;
+    assert.equal(verificationSignal.aborted, true);
+    assert.equal(adapter.getAuthState().authenticated, false);
+});
+
+test('abandoned Google consent expires separately and late callbacks cannot authenticate', async context => {
+    const state = fixture();
+    const adapter = createAdapter();
+    await adapter.initAuth(CONFIG);
+    state.client().requestAccessToken = () => {};
+    context.mock.timers.enable({apis: ['setTimeout']});
+    const pending = assert.rejects(adapter.login(), {name: 'TimeoutError'});
+    await Promise.resolve();
+    const callback = state.client().callback;
+    context.mock.timers.tick(600001);
+    await pending;
+    callback({access_token: 'google-fixture', expires_in: 3600});
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(adapter.getAuthState().authenticated, false);
+});

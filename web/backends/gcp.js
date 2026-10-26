@@ -5,6 +5,8 @@
  */
 import {withDeadline} from '../network.mjs';
 
+const CONSENT_TIMEOUT_MS = 10 * 60 * 1000;
+
 /**
  * Purpose: Scope Google browser authentication to one installation.
  * Input: Configuration supplied through the existing adapter methods.
@@ -20,7 +22,7 @@ export function createAdapter() {
     const valid = () => Boolean(session?.accessToken && session.expiresAt > Date.now() + 60000);
 
     function getAuthState() {
-        const authenticated = valid();
+        const authenticated = Boolean(session?.accessToken);
         return {authenticated, user: authenticated ? session.identity.displayName : null,
             canControlRuns: authenticated, canSaveWorkspaces: authenticated,
             message: authenticated ? 'Connected to Google Cloud' : 'Sign in with Google to view experiments'};
@@ -88,7 +90,8 @@ export function createAdapter() {
             tokenClient.callback = result => acceptToken(result, signal).then(resolve, reject);
             tokenClient.error_callback = () => reject(new Error('Google sign-in was cancelled or blocked.'));
             tokenClient.requestAccessToken({prompt: session ? '' : 'select_account'});
-        })).catch(error => { clear(); throw error; }).finally(() => { pending = null; });
+        }), {timeoutMs: CONSENT_TIMEOUT_MS}).catch(error => { clear(); throw error; })
+            .finally(() => { pending = null; });
         return pending;
     }
 
@@ -97,7 +100,8 @@ export function createAdapter() {
             config = settings;
             try {
                 session = JSON.parse(sessionStorage.getItem(key()));
-                if (!valid() || !session.identity?.userId) clear();
+                if (!session?.accessToken || !session.identity?.userId ||
+                    !Number.isFinite(session.expiresAt)) clear();
             } catch { clear(); }
             if (config.client_id) await initializeClient();
             return getAuthState();

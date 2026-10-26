@@ -12,8 +12,9 @@ import os
 from pathlib import Path
 import tempfile
 import threading
+import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib import request
 
 try:
@@ -263,6 +264,76 @@ class GcpHttpTests(unittest.TestCase):
                      "https://gcp.example?query=x", "https://gcp.example:8443"):
             with self.assertRaises(ValueError):
                 normalize_gcp_config({"backend": "gcp", "host": host, "gcp_id": "a" * 32})
+
+    def test_google_verification_outages_remain_retryable_and_deny_writes(self):
+        import requests
+        from backprop.failures import retryable_failure
+
+        outages = [Mock(status_code=status) for status in (408, 429, 500, 502, 503, 504)]
+        outages += [requests.Timeout(TOKEN), requests.ConnectionError(TOKEN)]
+        malformed = Mock(status_code=200)
+        malformed.json.side_effect = ValueError(TOKEN)
+        outages.append(malformed)
+        with service() as server:
+            store = create_store(server.connection, token=TOKEN)
+            server.authorize = GoogleAuthorizer([EMAIL])
+            for outage in outages:
+                options = {"side_effect": outage} if isinstance(outage, Exception) else {"return_value": outage}
+                with self.subTest(outage=type(outage).__name__), \
+                        patch("requests.get", **options) as verify, \
+                        patch("backprop_backend.http_store.time.sleep"), \
+                        self.assertRaises(BackendError) as caught:
+                    store.publish([event("unverified")])
+                self.assertEqual(caught.exception.status_code, 503)
+                self.assertEqual(caught.exception.error_name, "AuthenticationUnavailable")
+                self.assertTrue(retryable_failure(caught.exception))
+                self.assertEqual(verify.call_count, 4)
+                self.assertEqual(server.database.end_offset(), 0)
+                self.assertNotIn(TOKEN, str(caught.exception))
+            for status in (400, 401, 403):
+                with patch("requests.get", return_value=Mock(status_code=status)) as verify, \
+                        self.assertRaises(BackendError) as caught:
+                    store.publish([event("denied")])
+                self.assertEqual(caught.exception.status_code, 403)
+                self.assertFalse(retryable_failure(caught.exception))
+                self.assertEqual(verify.call_count, 1)
+
+    def test_sdk_background_upload_recovers_after_google_verification_outage(self):
+        import backprop
+
+        with service() as server, tempfile.TemporaryDirectory() as directory:
+            store = create_store(server.connection, token=TOKEN)
+            run = backprop.init(project="google-outage", dir=directory, _sink=store,
+                _deployment=server.connection, settings={"console": "off", "silent": True,
+                    "disable_git": True, "x_disable_stats": True, "flush_interval": 0.02})
+            try:
+                run.flush()
+                server.authorize = GoogleAuthorizer([EMAIL])
+                allowed = Mock(status_code=200)
+                allowed.json.return_value = {"email": EMAIL, "email_verified": True, "expires_in": 3600}
+                responses = [Mock(status_code=503) for _ in range(4)]
+
+                def verify(*args, **options):
+                    return responses.pop() if responses else allowed
+
+                with patch("requests.get", side_effect=verify), \
+                        patch("backprop_backend.http_store.time.sleep"):
+                    run.log({"recovered": 7}, commit=True)
+                    deadline = time.monotonic() + 5
+                    while True:
+                        records = server.database.read_records(start=0, limit=100)
+                        if any(json.loads(row["value"]["payload"]).get("metrics", {}).get("recovered") == 7
+                               for row in records):
+                            break
+                        self.assertLess(time.monotonic(), deadline, "The background uploader did not recover")
+                        threading.Event().wait(0.02)
+                    self.assertEqual(responses, [])
+                    self.assertTrue(run._thread.is_alive())
+            finally:
+                server.authorize = GoogleAuthorizer([EMAIL], verify_token=lambda token:
+                    {"email": EMAIL, "email_verified": True, "expires_in": 3600})
+                run.finish()
+                backprop.teardown()
 
     def test_large_chunked_upload_download_and_incomplete_upload(self):
         with service() as server, tempfile.TemporaryDirectory() as directory:

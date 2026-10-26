@@ -16,7 +16,7 @@ from google.api_core.exceptions import GoogleAPICallError
 
 from backprop_backend.assets import asset_names, asset_path
 from backprop_backend.local.server import _Handler as HttpHandler, CSP
-from .auth import GoogleAuthorizer
+from .auth import GoogleAuthorizer, GoogleVerificationUnavailable
 from .config import MEDIA_RID, STREAM_RID, normalize_gcp_config
 from .database import GcsDatabase
 
@@ -66,6 +66,8 @@ class _Handler(HttpHandler):
     def _dispatch(self) -> None:
         try:
             super()._dispatch()
+        except GoogleVerificationUnavailable:
+            self._error(503, "AuthenticationUnavailable", "Google authentication is temporarily unavailable")
         except GoogleAPICallError:
             self._error(503, "StorageUnavailable", "Google Cloud storage is unavailable")
 

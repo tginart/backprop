@@ -12,6 +12,10 @@ from backprop_backend.auth import AuthCandidate
 from .config import normalize_gcp_config
 
 
+class GoogleVerificationUnavailable(Exception):
+    """Google could not verify a token because its verification service is unavailable."""
+
+
 def authenticate_candidate(*, config: dict, native_store: Callable,
                            key: str | None = None, host: str | None = None,
                            verify: bool = False, timeout: float | None = None,
@@ -63,12 +67,19 @@ class GoogleAuthorizer:
 
 
 def _verify_access_token(token: str) -> dict:
+    """
+    Purpose: Keep rejected credentials separate from transient Google service failures.
+    Input: A Google access token held only in the request context.
+    Output: Verified claims, a permission failure, or a retryable service failure.
+    """
     import requests
     try:
         response = requests.get("https://oauth2.googleapis.com/tokeninfo",
                                 params={"access_token": token}, timeout=15)
+        if response.status_code in {408, 425, 429} or response.status_code >= 500:
+            raise GoogleVerificationUnavailable("Google authentication is temporarily unavailable")
         if response.status_code != 200:
             raise PermissionError("Google rejected the access token")
         return response.json()
     except (requests.RequestException, ValueError):
-        raise PermissionError("Google authentication could not be verified") from None
+        raise GoogleVerificationUnavailable("Google authentication is temporarily unavailable") from None
