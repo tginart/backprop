@@ -404,6 +404,44 @@ class GcpDatabaseTests(unittest.TestCase):
                 records.close()
                 tracemalloc.stop()
 
+    def test_live_pages_bound_response_bytes_and_serialization_memory(self):
+        """
+        Purpose: Bound live page memory before the HTTP response encoder runs.
+        Input: A native iterator with one thousand records of 32 KiB each.
+        Output: At most 4 MiB of JSON and less than 20 MiB of peak memory.
+        """
+        closed = threading.Event()
+
+        def snapshots():
+            try:
+                for offset in range(1000):
+                    record = HttpStore.event_to_record(event(f"large-live-{offset}"))
+                    record["payload"] = json.dumps({"large": "x" * 32768})
+                    item = {"offset": offset, "record": json.dumps(record)}
+                    yield Mock(to_dict=lambda item=item: item)
+            finally:
+                closed.set()
+
+        query = Mock()
+        query.where.return_value = query
+        query.order_by.return_value = query
+        query.limit.return_value = query
+        query.stream.side_effect = snapshots
+        with patch.object(self.database, "events", query):
+            tracemalloc.start()
+            try:
+                rows = self.database.read_records(start=0, limit=1000)
+                encoded = json.dumps(rows, allow_nan=False, separators=(",", ":")).encode()
+                peak = tracemalloc.get_traced_memory()[1]
+            finally:
+                tracemalloc.stop()
+        self.assertLess(peak, 20 * 1024 * 1024)
+        self.assertLessEqual(len(encoded), 4 * 1024 * 1024)
+        self.assertGreater(len(rows), 0)
+        self.assertLess(len(rows), 1000)
+        self.assertEqual([row["offset"] for row in rows], list(map(str, range(len(rows)))))
+        self.assertTrue(closed.is_set(), "The partial native query must close")
+
     def test_canonical_duplicates_and_conflicts_within_one_batch(self):
         record = HttpStore.event_to_record(event("same"))
         equivalent = {**record, "payload": json.dumps(json.loads(record["payload"]), indent=4)}
@@ -531,6 +569,35 @@ class GcpHttpTests(unittest.TestCase):
             result = run_scenario(server.connection, token=None, archive_timeout_s=5)
             self.assertEqual(result["status"], "passed")
             self.assertEqual(len(result["checks"]), 11)
+
+    def test_sdk_reads_every_record_across_byte_limited_live_pages(self):
+        """
+        Purpose: Preserve complete cursor traversal when a live page has fewer records.
+        Input: Twenty records and a reduced response byte budget.
+        Output: Exact ordered SDK records without gaps or duplicate offsets.
+        """
+        events = [event(f"byte-page-{index}") for index in range(20)]
+        for item in events:
+            item["payload"]["padding"] = "x" * 3000 + "\N{SNOWMAN}\n\\\""
+        with service() as server, patch(
+            "backprop_backend.gcp.database.MAX_LIVE_PAGE_BYTES", 16 * 1024,
+        ):
+            store = create_store(server.connection, token=TOKEN)
+            store.publish(events)
+            partition = next(key for key, end in server.database.end_offsets().items()
+                             if int(end))
+            page = server.database.read_records(start=0, limit=1000, partition=partition)
+            self.assertLess(len(page), len(events))
+            self.assertLessEqual(
+                len(json.dumps(page, separators=(",", ":")).encode()), 16 * 1024,
+            )
+            self.assertEqual(
+                [row["event_id"] for row in store.read_live_records()],
+                [item["event_id"] for item in events],
+            )
+            self.assertEqual(len(server.database.read_records(
+                start=19, limit=1, partition=partition,
+            )), 1)
 
     def test_exhausted_firestore_contention_remains_retryable(self):
         from google.api_core.exceptions import Aborted

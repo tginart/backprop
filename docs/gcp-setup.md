@@ -244,6 +244,10 @@ An explicit SDK timeout overrides the default; dedicated stop readers retain
 their five-second request timeout. Other backend request defaults do not change.
 The Cloud Run 300-second limit remains the service ceiling, not the browser budget.
 
+Live record pages also have a 4 MiB JSON response budget. A page can contain fewer
+records than its requested limit. The unchanged SDK and browser continue from the
+last returned offset. The server closes the native query when the page is full.
+
 Artifact bytes become durable in GCS before a Firestore reference commits.
 Competing APPEND claims retain the first winner. Downloads verify size and SHA-256.
 

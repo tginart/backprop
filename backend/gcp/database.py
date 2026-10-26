@@ -7,6 +7,7 @@ Note: A metrics batch reads its event identities and one partition cursor only.
 from __future__ import annotations
 
 import csv
+from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import heapq
@@ -29,6 +30,7 @@ from .queries import FIELDS, HistoryQuery, matches, parse_query, scope_key, scop
 PARTITION_COUNT = 16
 QUERY_RETENTION_S = 3600
 QUERY_PAGE_SIZE = 128
+MAX_LIVE_PAGE_BYTES = 4 * 1024 * 1024
 
 
 class FirestoreDatabase:
@@ -117,13 +119,30 @@ class FirestoreDatabase:
         return sum(map(int, self.end_offsets().values()))
 
     def read_records(self, *, start: int, limit: int, partition: str = "0") -> list[dict]:
+        """
+        Purpose: Return a byte-limited live page without a large response buffer.
+        Input: One partition, an inclusive offset, and a maximum record count.
+        Output: At most 4 MiB of JSON, with progress for every legal record.
+        Note: Clients resume from the last returned offset, even for a short page.
+        """
         if partition not in {str(index) for index in range(PARTITION_COUNT)}:
             raise ValueError("Unknown Backprop Firestore partition")
         query = self.events.where(filter=FieldFilter("partition", "==", int(partition)))
         query = query.where(filter=FieldFilter("offset", ">=", start))
-        return [{"offset": str(item["offset"]), "value": json.loads(item["record"])}
-                for snapshot in query.order_by("offset").limit(limit).stream()
-                for item in [snapshot.to_dict()]]
+        rows, size_bytes = [], 2
+        with closing(query.order_by("offset").limit(limit).stream()) as snapshots:
+            for snapshot in snapshots:
+                item = snapshot.to_dict()
+                row = {"offset": str(item["offset"]), "value": json.loads(item["record"])}
+                row_bytes = len(json.dumps(
+                    row, allow_nan=False, separators=(",", ":"),
+                ).encode())
+                next_size_bytes = size_bytes + row_bytes + (1 if rows else 0)
+                if rows and next_size_bytes > MAX_LIVE_PAGE_BYTES:
+                    break
+                rows.append(row)
+                size_bytes = next_size_bytes
+        return rows
 
     def execute_query(self, query: str) -> str:
         """
