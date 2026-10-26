@@ -99,9 +99,17 @@ class Blob:
     def upload_from_file(self, source, **options):
         self.upload_from_string(source.read(), **options)
 
-    def open(self, mode):
-        assert mode == "rb"
-        return io.BytesIO(self.download_as_bytes())
+    @contextmanager
+    def open(self, mode, **options):
+        with io.BytesIO() as stream:
+            if mode == "rb":
+                stream.write(self.download_as_bytes())
+                stream.seek(0)
+                yield stream
+            else:
+                assert mode == "wb"
+                yield stream
+                self.upload_from_string(stream.getvalue(), **options)
 
     def delete(self, **options):
         with self.bucket.lock:
@@ -203,6 +211,25 @@ class GcpDatabaseTests(unittest.TestCase):
         for query in ("DROP TABLE events", query.replace(STREAM_RID, "foreign")):
             with self.assertRaises(ValueError):
                 restored.execute_query(query)
+
+    def test_failed_history_export_does_not_publish_a_partial_result(self):
+        """
+        Purpose: Abort the GCS result when a Firestore history read fails.
+        Input: A history iterator that fails after one valid record.
+        Output: No query descriptor or finalized partial CSV object.
+        """
+        record = HttpStore.event_to_record(event("partial"))
+
+        def interrupted(plan, read_time):
+            yield record
+            raise OSError("history read interrupted")
+
+        query = f"SELECT * FROM `{STREAM_RID}` ORDER BY timestamp LIMIT 100"
+        with patch.object(self.database, "_history_records", interrupted):
+            with self.assertRaisesRegex(OSError, "history read interrupted"):
+                self.database.execute_query(query)
+        self.assertEqual(self.bucket.objects, {})
+        self.assertEqual(list(self.database.root.collection("queries").stream()), [])
 
     def test_artifacts_integrity_and_concurrent_append_claims(self):
         data = b"immutable artifact"

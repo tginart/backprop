@@ -14,7 +14,6 @@ import io
 import itertools
 import json
 import re
-import tempfile
 import time
 from typing import Any, Iterator
 import uuid
@@ -138,17 +137,19 @@ class FirestoreDatabase:
         boundaries = self.end_offsets(read_time=read_time)
         identifier = uuid.uuid4().hex
         name = f"{self.prefix}/queries/{identifier}.csv"
-        with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as output:
+        with self.bucket.blob(name).open(
+            "wb", chunk_size=8 * 1024 * 1024, ignore_flush=True,
+            if_generation_match=0, timeout=180,
+        ) as output:
             text = io.TextIOWrapper(output, encoding="utf-8", newline="", write_through=True)
-            writer = csv.writer(text)
-            writer.writerow(FIELDS.split(","))
-            for record in itertools.islice(self._history_records(plan, read_time), plan.limit):
-                writer.writerow([record[field] for field in FIELDS.split(",")])
-            text.flush()
-            output.seek(0)
-            self.bucket.blob(name).upload_from_file(output, if_generation_match=0,
-                                                   checksum="crc32c", timeout=180)
-            text.detach()
+            try:
+                writer = csv.writer(text)
+                writer.writerow(FIELDS.split(","))
+                for record in itertools.islice(self._history_records(plan, read_time), plan.limit):
+                    writer.writerow([record[field] for field in FIELDS.split(",")])
+                text.flush()
+            finally:
+                text.detach()
         self.root.collection("queries").document(identifier).create({
             "blob": name, "boundaries": boundaries, "created_at": time.time(),
             "expires_at": datetime.fromtimestamp(time.time() + QUERY_RETENTION_S, timezone.utc),

@@ -227,8 +227,9 @@ prefix ties retain exact timestamp/event-ID order. Long IDs and deeply nested
 payloads therefore retain the shared contract without oversized index entries.
 
 Every archive query captures one Firestore read time and its full partition
-boundary vector. The service materializes an immutable CSV at that read time and
-streams it from GCS with bounded server memory. A later write cannot enter an
+boundary vector. The service writes an immutable CSV directly to GCS in bounded
+chunks at that read time, then streams it from GCS with bounded server memory.
+A later write cannot enter an
 earlier snapshot, including a backdated event. Results survive service restarts
 for one hour. Cancellation removes query metadata and cached bytes; Firestore TTL
 and the GCS one-day lifecycle remove expired cache resources asynchronously. The
@@ -336,8 +337,19 @@ not discard events that clients already durably acknowledged.
 
 ## Validation record
 
-The Firestore implementation requires fresh native, shared-contract, package,
-browser, and real-deployment evidence. The earlier GCS/SQLite snapshot deployment
-does not validate this implementation. Temporary installations use dedicated
-ownership ledgers. Verification reports and deployment state stay outside public
-source; record observed results only after the corresponding checks pass.
+The native Firestore deployment passed all 11 shared SDK acceptance checks and
+the live dashboard browser scenario. Additional HTTPS checks verified 12,500
+committed events, eight concurrent writers, duplicate replay, atomic conflict
+rejection, concurrent artifact claims, and a 512 MiB artifact round trip with
+SHA-256 verification and a partial-range download.
+
+A workstation-to-Firestore benchmark measured 50-event batches at histories of
+0, 5,000, and 20,000 events. Each batch requested 51 document reads and 51 writes,
+with zero GCS ingestion calls. Observed p95 latencies were 777, 694, and 743 ms.
+These measurements include workstation network latency and are not a latency
+guarantee or a billing audit. The benchmark records retries and request counts.
+
+Use fresh native, shared-contract, package, browser, and real-deployment checks
+for each release. Temporary installations use dedicated ownership ledgers.
+Verification reports and deployment state stay outside public source. The earlier
+GCS/SQLite snapshot deployment does not validate the Firestore implementation.
