@@ -47,3 +47,4 @@ export function exportConfiguration(config) {
 export const resolveWorkspaceIdentity = (request, options) => adapter.resolveWorkspaceIdentity(request, options);
 
 export const getArchiveOffsets = response => adapter.getArchiveOffsets?.(response) || null;
+export const getRequestTimeoutMs = path => adapter.getRequestTimeoutMs?.(path);

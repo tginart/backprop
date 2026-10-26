@@ -7,7 +7,7 @@ import {withDeadline, bufferedResponse} from '../network.mjs';
 import {isWorkspaceEvent, makeWorkspaceEvent, replayWorkspaces} from '../workspace-store.mjs';
 import {initAuth, getAccessToken, getAuthState, validateConfiguration,
     getBackendPresentation, requestError, exportConfiguration,
-    resolveWorkspaceIdentity, getArchiveOffsets} from './connection.js';
+    resolveWorkspaceIdentity, getArchiveOffsets, getRequestTimeoutMs} from './connection.js';
 
 export function createClient() {
     let config;
@@ -60,7 +60,7 @@ export function createClient() {
         if (!signal?.aborted && (error instanceof TypeError || error instanceof SyntaxError)) error.responseTruncated = true;
         throw error;
       }
-      }, {signal:outerSignal, timeoutMs});
+      }, {signal:outerSignal, timeoutMs: timeoutMs ?? getRequestTimeoutMs(path)});
     }
 
     /** Resolve a real current-user identity within the existing restricted app.

@@ -306,8 +306,10 @@ class FirestoreDatabase:
         query = query.order_by("sort_key", direction=direction).limit(page_size)
         pending, prefix, cursor = [], None, None
         while True:
-            page = list((query.start_after(cursor) if cursor else query).stream(read_time=read_time))
-            for snapshot in page:
+            count = 0
+            for snapshot in (query.start_after(cursor) if cursor else query).stream(read_time=read_time):
+                count += 1
+                cursor = snapshot
                 item = snapshot.to_dict()
                 if prefix is not None and item["sort_key"] != prefix:
                     yield from sorted(pending, key=lambda row: (row["timestamp"], row["event_id"]),
@@ -317,11 +319,10 @@ class FirestoreDatabase:
                 record = json.loads(item["record"])
                 if matches(record, plan):
                     pending.append(record)
-            if len(page) < page_size:
+            if count < page_size:
                 yield from sorted(pending, key=lambda row: (row["timestamp"], row["event_id"]),
                                   reverse=plan.descending)
                 return
-            cursor = page[-1]
 
 
 def _digest(value: str) -> str:

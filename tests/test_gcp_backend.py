@@ -14,6 +14,7 @@ from pathlib import Path
 import tempfile
 import threading
 import time
+import tracemalloc
 import unittest
 import uuid
 from unittest.mock import Mock, patch
@@ -355,6 +356,54 @@ class GcpDatabaseTests(unittest.TestCase):
             [HttpStore.record_to_event(record)],
         )
 
+    def test_history_merge_retains_bounded_bytes_from_large_native_pages(self):
+        """
+        Purpose: Bound retained records across all sixteen history partitions.
+        Input: Native page iterators with 128 records of 32 KiB per partition.
+        Output: Less than 8 MiB retained after the first merged result.
+        """
+        from backprop_backend.gcp.queries import parse_query, sort_key
+
+        class PartitionQuery:
+            """Produce independent large snapshots without a retained fixture page."""
+
+            def __init__(self, partition):
+                self.partition = partition
+
+            def where(self, **options):
+                return self
+
+            def order_by(self, *args, **options):
+                return self
+
+            def limit(self, value):
+                return self
+
+            def stream(self, **options):
+                for index in range(128):
+                    record = HttpStore.event_to_record(event(
+                        f"{index:06d}-{self.partition:02d}"))
+                    record["timestamp"] = "2026-01-01T00:00:00Z"
+                    record["payload"] = json.dumps({"large": "x" * 32768})
+                    item = {"record": json.dumps(record),
+                            "sort_key": sort_key(record["timestamp"], record["event_id"])}
+                    yield Mock(to_dict=lambda item=item: item)
+
+        events = Mock()
+        events.where.side_effect = lambda **options: PartitionQuery(options["filter"].value)
+        plan = parse_query(f"SELECT * FROM `{STREAM_RID}` ORDER BY timestamp LIMIT 1000")
+        with patch.object(self.database, "events", events):
+            tracemalloc.start()
+            records = self.database._history_records(plan, self.database._read_time())
+            try:
+                baseline = tracemalloc.get_traced_memory()[0]
+                next(records)
+                retained = tracemalloc.get_traced_memory()[0] - baseline
+                self.assertLess(retained, 8 * 1024 * 1024)
+            finally:
+                records.close()
+                tracemalloc.stop()
+
     def test_canonical_duplicates_and_conflicts_within_one_batch(self):
         record = HttpStore.event_to_record(event("same"))
         equivalent = {**record, "payload": json.dumps(json.loads(record["payload"]), indent=4)}
@@ -566,6 +615,72 @@ class GcpHttpTests(unittest.TestCase):
             self.assertEqual(store.token, "refreshed")
             self.assertIsNone(snapshot_store(store)["token"])
             self.assertEqual(factory.call_count, 1)
+
+    def test_adc_control_reader_refreshes_after_live_and_archive_token_expiry(self):
+        """
+        Purpose: Keep the dedicated stop reader refreshable after ADC token expiry.
+        Input: Independent ADC credentials and a stop request after initial offsets.
+        Output: Live and archive stop reads succeed after each credential expires.
+        """
+        from types import SimpleNamespace
+
+        credentials, accepted = [], set()
+        sequence = iter(range(100))
+
+        def default_credentials(**options):
+            value = SimpleNamespace(valid=False, token=None)
+
+            def refresh(req):
+                value.token = f"adc-{next(sequence)}"
+                value.valid = True
+                accepted.add(value.token)
+
+            value.refresh = refresh
+            credentials.append(value)
+            return value, None
+
+        def verify(token):
+            if token not in accepted:
+                raise PermissionError("Expired test credential")
+            return {"email": EMAIL, "email_verified": True, "expires_in": 3600}
+
+        with service() as server, patch.dict("os.environ", {}, clear=True), \
+                patch("google.auth.default", side_effect=default_credentials):
+            server.authorize = GoogleAuthorizer([EMAIL], verify_token=verify)
+            store = create_store(server.connection)
+            reader = store.control_reader(project="project", entity="local",
+                                          run_id="run-1", instance_id="instance")
+            accepted.clear()
+            for value in credentials:
+                value.valid = False
+            stop = {**event("stop"), "type": "run_stop_request",
+                    "payload": {"action": "stop", "instance_id": "instance"}}
+            store.publish([stop])
+            self.assertEqual([item["event_id"] for item in reader.poll()], ["stop"])
+            accepted.clear()
+            for value in credentials:
+                value.valid = False
+            self.assertEqual([item["event_id"] for item in reader._archive()], ["stop"])
+            self.assertIsNone(snapshot_store(reader.store)["token"])
+            self.assertEqual(reader.store.config["timeout"], 5)
+            self.assertNotIn("timeout", store.config)
+
+    def test_cloud_history_requests_use_the_archive_deadline_and_keep_short_controls(self):
+        query = f"SELECT * FROM `{STREAM_RID}` ORDER BY timestamp LIMIT 100"
+        body = {"query": query, "serializationFormat": "CSV", "fallbackBranchIds": ["master"]}
+        with service() as server:
+            store = create_store(server.connection, token=TOKEN)
+            with patch.object(store.opener, "open", wraps=store.opener.open) as opened:
+                result = store.request("/api/v2/sqlQueries/execute", "POST", body)
+                self.assertEqual(opened.call_args.kwargs["timeout"], 180)
+                store.request(f"/api/v2/sqlQueries/{result['queryId']}/getResults")
+                self.assertEqual(opened.call_args.kwargs["timeout"], 180)
+                store.request("/config.json")
+                self.assertEqual(opened.call_args.kwargs["timeout"], 60)
+            short = create_store({**server.connection, "timeout": 5}, token=TOKEN)
+            with patch.object(short.opener, "open", wraps=short.opener.open) as opened:
+                short.request("/api/v2/sqlQueries/execute", "POST", body)
+                self.assertEqual(opened.call_args.kwargs["timeout"], 5)
 
     def test_explicit_login_and_per_run_settings_keep_google_credentials(self):
         import backprop

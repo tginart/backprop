@@ -121,6 +121,7 @@ export function createAdapter() {
         },
         runControlScope: () => null,
         resolveWorkspaceIdentity: (request, options) => request('/api/backprop/identity', options),
+        getRequestTimeoutMs: path => path.startsWith('/api/v2/sqlQueries/') ? 180000 : undefined,
         getArchiveOffsets(response) {
             let offsets;
             try { offsets = JSON.parse(response.headers.get('X-Backprop-End-Offsets')); }

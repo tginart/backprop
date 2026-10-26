@@ -7,10 +7,50 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAdapter} from '../web/backends/gcp.js';
 import {exportConfiguration} from '../web/backends/connection.js';
+import {createClient} from '../web/backends/http.js';
 
 const CONFIG = {backend: 'gcp', host: 'https://gcp.example', gcp_id: 'a'.repeat(32),
     client_id: 'public-google-client', stream_dataset_rid: 'ri.foundry.gcp.dataset.events',
     media_dataset_rid: 'ri.foundry.gcp.dataset.media', branch: 'master'};
+
+test('Google history exports can exceed the ordinary 30-second request deadline', async () => {
+    fixture();
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const timers = new Map();
+    let nextTimer = 0;
+    globalThis.setTimeout = (callback, milliseconds) => {
+        const id = ++nextTimer;
+        timers.set(id, {callback, milliseconds});
+        return id;
+    };
+    globalThis.clearTimeout = id => timers.delete(id);
+    const boundaries = Object.fromEntries(Array.from({length: 16}, (_, i) => [String(i), '0']));
+    globalThis.fetch = async (url, options = {}) => {
+        if (url === './config.json') return Response.json(CONFIG);
+        if (url.endsWith('/execute')) {
+            for (const timer of [...timers.values()]) {
+                if (timer.milliseconds <= 35000) timer.callback();
+            }
+            return Response.json({queryId: 'slow-history', type: 'succeeded'});
+        }
+        if (url.endsWith('/getResults')) return new Response(
+            'schema_version,event_id,run_id,project,entity,event_type,timestamp,payload\n',
+            {headers: {'X-Backprop-End-Offsets': JSON.stringify(boundaries)}}
+        );
+        if (url.includes('/getEndOffsets')) return Response.json(boundaries);
+        throw new Error(`Unexpected fixture request: ${url}`);
+    };
+    try {
+        const client = createClient();
+        await client.initialize();
+        assert.deepEqual((await client.loadWorkspace()).events, []);
+        assert.equal(timers.size, 0);
+    } finally {
+        globalThis.setTimeout = originalSetTimeout;
+        globalThis.clearTimeout = originalClearTimeout;
+    }
+});
 
 function fixture() {
     const values = new Map();

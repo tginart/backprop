@@ -235,6 +235,12 @@ for one hour. Cancellation removes query metadata and cached bytes; Firestore TT
 and the GCS one-day lifecycle remove expired cache resources asynchronously. The
 API enforces the exact one-hour expiry independently of TTL deletion time.
 
+Cloud history requests use a 180-second default budget in the browser and SDK.
+The browser's complete archive operation retains its existing 180-second limit.
+An explicit SDK timeout overrides the default; dedicated stop readers retain
+their five-second request timeout. Other backend request defaults do not change.
+The Cloud Run 300-second limit remains the service ceiling, not the browser budget.
+
 Artifact bytes become durable in GCS before a Firestore reference commits.
 Competing APPEND claims retain the first winner. Downloads verify size and SHA-256.
 

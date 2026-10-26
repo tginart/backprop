@@ -77,6 +77,12 @@ class GcpStore(HttpStore):
             if row.get("event_type") != "workspace_snapshot"
         ])
 
+    def _request_timeout(self, path: str) -> float:
+        # Cloud history is synchronous. Keep its request budget at the existing
+        # archive deadline, while explicit control-reader timeouts stay short.
+        default = 180 if path.startswith("/api/v2/sqlQueries/") else 60
+        return self.config.get("timeout", default)
+
     def request(self, path: str, method: str = "GET", body=None,
                 content_type: str = "application/json", **options):
         """

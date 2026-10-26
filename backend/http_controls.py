@@ -20,10 +20,11 @@ class HttpControlReader:
     _max_pages = 4
 
     def __init__(self, store, **scope):
-        from .connection import create_store
+        from .connection import create_store, snapshot_store
+        session = snapshot_store(store)
         self.store = create_store(
             {**store.config, "timeout": min(store.config.get("timeout", 60), 5)},
-            token=store.token,
+            token=session["token"] if session["kind"] == "backend" else store.token,
         )
         self.scope = scope
         self.offsets = self._ends()
