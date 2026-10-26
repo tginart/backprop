@@ -19,7 +19,8 @@ SPEC = importlib.util.spec_from_file_location("gcp_deployment", ROOT / "deploy/g
 DEPLOY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DEPLOY)
 CONFIG = {"project": "customer-project", "region": "europe-west1", "name": "backprop-test",
-          "allowed_emails": ["operator@example.com"], "prefix": "isolated"}
+          "allowed_emails": ["operator@example.com"], "prefix": "isolated",
+          "client_id": "123456-example.apps.googleusercontent.com"}
 
 
 class GcpDeploymentTests(unittest.TestCase):
@@ -42,19 +43,32 @@ class GcpDeploymentTests(unittest.TestCase):
 
     def test_explicit_project_resources_connection_and_cleanup(self):
         calls = []
+        environments = []
 
         def run(command, **options):
             calls.append(command)
+            if "--env-vars-file" in command:
+                path = Path(command[command.index("--env-vars-file") + 1])
+                environments.append(json.loads(path.read_text()))
             output = "https://backprop.example" if "describe" in command else ""
             return subprocess.CompletedProcess(command, 0, stdout=output)
 
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "deployment.local.json"
             response = json.dumps({"backend": "gcp", "gcp_id": "a" * 32,
-                                   "host": "https://backprop.example"}).encode()
+                                   "host": "https://backprop.example",
+                                   "client_id": CONFIG["client_id"]}).encode()
             with patch("urllib.request.urlopen", return_value=io.BytesIO(response)):
                 result = DEPLOY.deploy(CONFIG, state, run=run)
-            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["status"], "deployed")
+            browser_auth = result["browser_authentication"]
+            self.assertEqual(browser_auth["status"], "origin_registration_and_sign_in_required")
+            self.assertEqual(browser_auth["authorized_javascript_origin"], result["origin"])
+            self.assertEqual(browser_auth["client_id"], CONFIG["client_id"])
+            self.assertIn(CONFIG["project"], browser_auth["clients_url"])
+            self.assertEqual(len(environments), 2)
+            self.assertTrue(all(environment["BACKPROP_GOOGLE_CLIENT_ID"] == CONFIG["client_id"]
+                                for environment in environments))
             self.assertEqual(set(result["owned"]), {"bucket", "account", "repository", "service"})
             self.assertEqual(json.loads(Path(result["connection_path"]).read_text())["backend"], "gcp")
             self.assertTrue(all(command[-3:-1] == ["--project", CONFIG["project"]] for command in calls))
@@ -67,6 +81,75 @@ class GcpDeploymentTests(unittest.TestCase):
             deletion_count = len(calls)
             DEPLOY.cleanup(state, run=run)
             self.assertEqual(len(calls), deletion_count)
+
+    def test_missing_or_invalid_oauth_config_creates_no_resources_or_ledger(self):
+        """
+        Purpose: Refuse incomplete browser setup before any cloud change.
+        Input: Missing, malformed, and contradictory OAuth settings.
+        Output: A configuration error without a ledger or cloud call.
+        """
+        invalid_configs = [
+            {**CONFIG, "client_id": value}
+            for value in (None, "", "not-a-google-client", "client.apps.googleusercontent.com ")
+        ]
+        invalid_configs.extend([
+            {key: value for key, value in CONFIG.items() if key != "client_id"},
+            {**CONFIG, "sdk_only": "true"},
+            {**CONFIG, "sdk_only": True},
+        ])
+        for config in invalid_configs:
+            with self.subTest(config=config), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory) / "deployment.local.json"
+                with patch("subprocess.run") as run, self.assertRaises(ValueError):
+                    DEPLOY.deploy(config, state, run=run)
+                run.assert_not_called()
+                self.assertFalse(state.exists())
+
+    def test_explicit_sdk_only_deployment_and_legacy_cleanup(self):
+        """
+        Purpose: Preserve intentional SDK access and cleanup of older installations.
+        Input: An SDK-only deployment and a ledger without the new selection.
+        Output: Explicit SDK status and successful resource cleanup.
+        """
+        config = {key: value for key, value in CONFIG.items() if key != "client_id"}
+        config["sdk_only"] = True
+
+        def run(command, **options):
+            output = "https://backprop.example" if "describe" in command else ""
+            return subprocess.CompletedProcess(command, 0, stdout=output)
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "deployment.local.json"
+            response = json.dumps({"backend": "gcp", "gcp_id": "a" * 32,
+                                   "host": "https://backprop.example"}).encode()
+            with patch("urllib.request.urlopen", return_value=io.BytesIO(response)):
+                result = DEPLOY.deploy(config, state, run=run)
+            self.assertEqual(result["browser_authentication"], {"status": "sdk_only"})
+            # Older deployments omitted both client_id and the explicit SDK mode.
+            result["config"].pop("sdk_only")
+            state.write_text(json.dumps(result))
+            self.assertEqual(DEPLOY.cleanup(state, run=run)["status"], "deleted")
+
+    def test_deployed_oauth_mismatch_preserves_resources_for_cleanup(self):
+        """
+        Purpose: Reject stale runtime OAuth settings without loss of cleanup evidence.
+        Input: A public connection with an unexpected client ID.
+        Output: A failed deployment and a complete resource ownership ledger.
+        """
+        def run(command, **options):
+            output = "https://backprop.example" if "describe" in command else ""
+            return subprocess.CompletedProcess(command, 0, stdout=output)
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "deployment.local.json"
+            response = json.dumps({"client_id": "different.apps.googleusercontent.com"}).encode()
+            with patch("urllib.request.urlopen", return_value=io.BytesIO(response)), \
+                    self.assertRaisesRegex(RuntimeError, "OAuth client ID"):
+                DEPLOY.deploy(CONFIG, state, run=run)
+            failed = json.loads(state.read_text())
+            self.assertEqual(failed["status"], "failed")
+            self.assertIn("service", failed["owned"])
+            self.assertEqual(DEPLOY.cleanup(state, run=run)["owned"], [])
 
     def test_existing_bucket_failure_never_claims_or_deletes_it(self):
         def fail(command, **options):

@@ -279,13 +279,13 @@
     },
     {
       "path": "deploy/gcp.example.json",
-      "bytes": 256,
-      "sha256": "6312a5d5c6ec547190facf4c2f25a69b52287b66c4cafa3501914bbcd6f1a928"
+      "bytes": 214,
+      "sha256": "01c1ae3ee33e3b014a8f6de9548dc9ec4cdfbf413f8962a35a1587ff53d12f9f"
     },
     {
       "path": "deploy/gcp_deploy.py",
-      "bytes": 13360,
-      "sha256": "bdb1497c22b4e705e5e45f109b0664134e11999c2d026ee8d18f27cead7c060e"
+      "bytes": 15855,
+      "sha256": "089b9b1378007ad4a11038f45864d2dc2217bbf83e66d27fc83dbcd87592b126"
     },
     {
       "path": "deploy/local_config.py",
@@ -334,8 +334,8 @@
     },
     {
       "path": "docs/gcp-setup.md",
-      "bytes": 11160,
-      "sha256": "5ff7a072da131b8e7d134978d7508f0633f4973a9556536fef551da64e3f2e6a"
+      "bytes": 16166,
+      "sha256": "18657f0605c7672d183a7e783c0311b99847793885097998f13071b5890f46a0"
     },
     {
       "path": "docs/interface.md",
@@ -2754,8 +2754,8 @@
     },
     {
       "path": "tests/test_gcp_deploy.py",
-      "bytes": 4919,
-      "sha256": "30a47c8c5f85c82a17e6fb6b71f8d7cf52677ebf631107ee3927baaf88d465b6"
+      "bytes": 9620,
+      "sha256": "273ce10eb1799bef071f49ba0998b3308c5b934bf98473706c671866f064dbc6"
     },
     {
       "path": "tests/test_gcp_frontend.mjs",

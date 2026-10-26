@@ -5,7 +5,7 @@ event schema, replay rules, dashboard, artifacts, offline sync, resume, and
 cooperative stop behavior stay the same. Install the optional dependencies with
 `python -m pip install '.[gcp]'` from a source checkout.
 
-## Deploy
+## 1. Deployment prerequisites
 
 One installation uses a Cloud Run service, a private GCS bucket, a dedicated
 runtime service account, and an Artifact Registry repository. All resource names,
@@ -33,26 +33,59 @@ standard service-agent roles. These are prerequisites; the script does not enabl
 APIs or grant project-wide roles. It grants only the new runtime account's
 object access on the new installation bucket.
 
-Edit the copied file. Choose a new installation name, project and region. Add
-the Google user or service-account emails permitted to use the installation.
-Existing resource names cause deployment to stop rather than adopt resources.
+Edit `deploy/gcp.local.json`. Set an explicit project, region, and new installation
+name. Set `allowed_emails` to the Google users and service accounts that can read
+and write this installation's data. The service enforces this list independently
+of Google's consent settings. Keep operator configuration and deployment state
+local; do not commit them.
 
-For browser sign-in, create a **Web application** OAuth client in Google Auth
-Platform. Configure its consent screen and test users as required by Google.
-Put its public client ID in `client_id`. After deployment, add the service's exact
-HTTPS origin to the client's authorized JavaScript origins. No client secret is
-needed. An empty client ID supports SDK-only installations.
+**Manual, once:** register the Google OAuth Web client described below. This is
+the equivalent of the Foundry application's OAuth registration. The operator
+needs **OAuth Config Editor** (`roles/oauthconfig.editor`) or equivalent
+permissions for this step. Google requires
+[manual client creation and configuration](https://developers.google.com/identity/protocols/oauth2/resources/best-practices#manual_creation_and_configuration_of_oauth_clients).
 
-This browser step cannot be bootstrapped through the standard Google OAuth API.
-Google explicitly requires
-[manual OAuth client creation and configuration](https://developers.google.com/identity/protocols/oauth2/resources/best-practices#manual_creation_and_configuration_of_oauth_clients),
-regardless of IAM permissions. The former
-[IAP OAuth Admin API was shut down](https://docs.cloud.google.com/iap/docs/deprecations)
-on March 19, 2026. Google-managed IAP clients support automatic setup for users
-within a Google organization, but
-[external users still require a custom OAuth client](https://docs.cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run#manage_user_or_group_access).
-This adapter uses Google Identity Services, not IAP. Deployment readiness confirms
-the service and connection file; it does not prove interactive browser sign-in.
+**Scripted, per installation:** create the bucket, runtime service account, image
+repository, and Cloud Run service; build the checkout; wire the client ID and
+allowlist into the service; save its URL and SDK connection file. The script
+stops if a resource name already exists. It does not adopt another application's
+resources or choose a project from gcloud's defaults.
+
+## 2. One-time Google OAuth setup
+
+1. Open [Google Auth Platform](https://console.cloud.google.com/auth/overview).
+   Select the same project as `project` in your deployment configuration.
+2. If Google shows **Get started**, complete the application registration. Use
+   an application name such as **Backprop**, your support email, and your
+   developer contact email. Under **Audience**, choose **External** for personal
+   Google accounts such as Gmail. Choose **Internal** only when all users belong
+   to the project's Google Workspace organization.
+3. For a test installation, keep the audience in **Testing** and add your test
+   accounts under **Audience → Test users** if Google requests them. Backprop
+   requests only `openid`, `email`, and `profile`; it does not request browser
+   access to Cloud Storage or the cloud-platform scope. In **Data Access**, use
+   those basic identity scopes when Google asks for scope configuration.
+4. Open **Clients → Create client**. Select **Web application**, and give the
+   client a distinct name such as **Backprop dashboard**. For a first deployment,
+   leave **Authorized JavaScript origins** empty until Cloud Run supplies the
+   URL in step 3 below. Leave **Authorized redirect URIs** empty: this adapter
+   uses Google's popup token flow and has no OAuth callback route.
+5. Create the client. Copy only its **Client ID**, which ends in
+   `.apps.googleusercontent.com`, into `client_id` in `deploy/gcp.local.json`.
+   This browser flow does not use a client secret. Do not copy the downloaded
+   credentials JSON, client secret, or access token into this file.
+
+Branding and audience settings apply to the Google project. If the project
+already has those settings, review them with the project owner rather than
+changing them for this installation. Create a separate Backprop Web client;
+do not edit an existing production application's client.
+
+You can retain the Web client for later deployments. Register each new service
+origin on that client. An update that retains the same service URL needs no new
+OAuth registration. See Google's [client setup](https://developers.google.com/identity/oauth2/web/guides/get-google-api-clientid)
+and [Auth Platform configuration](https://support.google.com/cloud/answer/15544987).
+
+## 3. Deploy the installation
 
 ```bash
 python deploy/gcp_deploy.py --config deploy/gcp.local.json \
@@ -61,9 +94,21 @@ python deploy/gcp_deploy.py --config deploy/gcp.local.json \
 
 The command builds this checkout, creates dedicated resources, deploys the service,
 sets its actual public origin, and downloads a connection file beside the resource
-ledger. Failures preserve the ledger for cleanup. New Google service accounts have
-bounded propagation retries. The command does not enable APIs or change project
-IAM automatically.
+ledger. Cloud Run assigns the URL to this new service; it is not another
+application's URL. Save the returned `origin` and the
+`browser_authentication.authorized_javascript_origin` value for the next step.
+The script checks that the deployed client ID matches your input. Its `deployed`
+status confirms infrastructure deployment; the browser authentication status
+explicitly requires origin registration and a real sign-in check.
+
+A missing or malformed `client_id` stops deployment before any cloud resource or
+ledger is created. If you intentionally need no browser sign-in, remove
+`client_id` and set `"sdk_only": true`; the output then identifies SDK-only mode.
+This mode does not provide a working dashboard sign-in.
+
+Failures after resource creation preserve the ledger for cleanup. New Google
+service accounts have bounded propagation retries. The command does not enable
+APIs or change project IAM automatically.
 
 Cloud Run uses zero minimum instances, four maximum instances, concurrency four,
 a 300-second timeout, and 4 GiB memory. `max_instances` is configurable. The bucket
@@ -71,7 +116,38 @@ has uniform access and public access prevention. Soft-delete retention is disabl
 so temporary resource cleanup removes stored bytes. Staged file parts have a
 one-day deletion lifecycle rule.
 
-## Connect
+## 4. Register the origin and verify sign-in
+
+1. Open the `browser_authentication.clients_url` returned by the deployment
+   command. Open the Web client whose ID matches `client_id` in your config.
+2. Under **Authorized JavaScript origins**, add the exact
+   `browser_authentication.authorized_javascript_origin` value. Use the HTTPS
+   scheme and hostname only: no trailing slash, path, query, or wildcard. Use
+   this canonical origin even if Cloud Run displays an alternate service URL.
+   Save the client and allow Google's change to propagate. No second deployment
+   is needed after this origin registration.
+3. Open the returned `origin` in a regular browser. Allow the Google popup,
+   select **Sign in with Google**, and choose an account in `allowed_emails`.
+   After consent, confirm that the dashboard loads experiment data, then reload
+   it and confirm that the session still works. Finally, sign out and confirm
+   that data access requires sign-in again. Empty installations need SDK data
+   before the dashboard can show experiments.
+
+The existing browser acceptance suite tests dashboard operations with a real
+Google token. It does not replace this interactive Google account-chooser check.
+The deployment command cannot verify a person's consent automatically. Google's
+[token-model guide](https://developers.google.com/identity/oauth2/web/guides/use-token-model)
+describes this popup flow.
+
+| Symptom | Check |
+| --- | --- |
+| `origin_mismatch` | Add the exact returned origin to the same Web client's Authorized JavaScript origins. |
+| `invalid_client` | Use a Web application client and copy its full Client ID into `client_id`. |
+| Google refuses consent | Review Audience, any required test users, and Workspace administrator policy. |
+| Backprop refuses the Google account | Add its verified email to the deployment's `allowed_emails`. Google consent alone does not grant access. |
+| Popup blocked or cancelled | Allow popups for the service origin and retry sign-in. |
+
+## 5. Connect the SDK
 
 ```bash
 gcloud auth application-default login
@@ -177,7 +253,9 @@ python deploy/gcp_deploy.py --cleanup --state .backprop/gcp/state.local.json
 Cleanup removes the service, image repository, runtime account, and bucket,
 including experiment data and build staging objects. Failed removals stay in the
 ledger for retry. Successful cleanup marks the ledger `deleted`. Preserve data
-you need before cleanup.
+you need before cleanup. Cleanup leaves your reusable OAuth client and project
+consent configuration intact. Remove a deleted service's origin from the client;
+delete a dedicated OAuth client in Google Auth Platform when it is no longer needed.
 
 ## Updates and backup
 

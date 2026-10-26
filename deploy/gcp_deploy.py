@@ -76,6 +76,7 @@ REQUIRED_RUNTIME_PERMISSIONS = (
     "storage.objects.list",
     "storage.objects.update",
 )
+OAUTH_SETUP_ROLE = "roles/oauthconfig.editor"
 
 
 def deployment_requirements() -> dict:
@@ -106,6 +107,7 @@ def deployment_requirements() -> dict:
             "Google requires manual creation and configuration of an OAuth Web "
             "client. IAM permissions do not permit API-based client creation."
         ),
+        "oauth_setup_role": OAUTH_SETUP_ROLE,
     }
 
 
@@ -113,9 +115,10 @@ def deploy(config: dict, state_path: Path, *, run: Callable = subprocess.run) ->
     """
     Purpose: Create dedicated resources with a least-privilege runtime identity.
     Input: Operator settings and a new private ledger path.
-    Output: A ready service and connection without changes to existing installations.
+    Output: A deployed service, its connection, and the remaining manual OAuth steps.
     """
     config = _validate_config(config)
+    _validate_browser_auth(config)
     if state_path.exists():
         raise ValueError("Use a new state path; an existing resource ledger must be preserved")
     project, region, name = (config[key] for key in ("project", "region", "name"))
@@ -198,9 +201,13 @@ def deploy(config: dict, state_path: Path, *, run: Callable = subprocess.run) ->
         from urllib.request import urlopen
         with urlopen(origin + "/config.json", timeout=60) as response:
             connection = json.load(response)
+        if connection.get("client_id", "") != config.get("client_id", ""):
+            raise RuntimeError("The deployed Google OAuth client ID does not match the configuration")
         connection_path = state_path.with_name(state_path.stem + ".connection.json")
         _save(connection_path, connection)
-        state.update(status="ready", origin=origin, connection_path=str(connection_path.resolve()))
+        state.update(status="deployed", origin=origin,
+                     browser_authentication=_browser_setup(config, origin),
+                     connection_path=str(connection_path.resolve()))
         _save(state_path, state)
         return state
     except BaseException:
@@ -240,6 +247,29 @@ def cleanup(state_path: Path, *, run: Callable = subprocess.run) -> dict:
     return state
 
 
+def _browser_setup(config: dict, origin: str) -> dict:
+    """
+    Purpose: Explain the manual OAuth steps for the new service's exact origin.
+    Input: A validated deployment configuration and the assigned Cloud Run origin.
+    Output: Registration instructions or an explicit SDK-only result.
+    """
+    if config.get("sdk_only", False):
+        return {"status": "sdk_only"}
+    return {
+        "status": "origin_registration_and_sign_in_required",
+        "client_id": config["client_id"],
+        "authorized_javascript_origin": origin,
+        "clients_url": (
+            "https://console.cloud.google.com/auth/clients?project=" + config["project"]
+        ),
+        "instructions": (
+            "Add this exact origin to the Web client's Authorized JavaScript "
+            "origins, save, then open the origin and test Sign in with Google. "
+            "See docs/gcp-setup.md#4-register-the-origin-and-verify-sign-in."
+        ),
+    }
+
+
 def _validate_config(config: dict) -> dict:
     """
     Purpose: Require explicit deployment identities before any cloud operation.
@@ -256,6 +286,29 @@ def _validate_config(config: dict) -> dict:
     if type(config.get("max_instances", 4)) is not int or not 1 <= config.get("max_instances", 4) <= 100:
         raise ValueError("max_instances must be between 1 and 100")
     return dict(config)
+
+
+def _validate_browser_auth(config: dict) -> None:
+    """
+    Purpose: Reject incomplete browser setup before the first cloud resource exists.
+    Input: A Web OAuth client ID or an explicit SDK-only selection.
+    Output: No value, or an actionable configuration error.
+    Note: Cleanup accepts older ledgers without a browser client ID.
+    """
+    if type(config.get("sdk_only", False)) is not bool:
+        raise ValueError("sdk_only must be true or false")
+    client_id = config.get("client_id", "")
+    if config.get("sdk_only", False) and client_id == "":
+        return
+    if config.get("sdk_only", False):
+        raise ValueError("Remove client_id for an SDK-only deployment")
+    if (not isinstance(client_id, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]+\.apps\.googleusercontent\.com", client_id)):
+        raise ValueError(
+            "Set client_id to a Google OAuth Web application client ID. "
+            "Follow docs/gcp-setup.md#2-one-time-google-oauth-setup. "
+            "For intentional SDK-only use, set sdk_only to true and omit client_id."
+        )
 
 
 def _save(path: Path, value: dict) -> None:
@@ -289,7 +342,8 @@ def main() -> None:
         if not args.config:
             parser.error("--config is required for deployment")
         state = deploy(json.loads(args.config.read_text()), args.state)
-    print(json.dumps({key: state[key] for key in ("status", "owned", "origin") if key in state}, indent=2))
+    fields = ("status", "owned", "origin", "browser_authentication")
+    print(json.dumps({key: state[key] for key in fields if key in state}, indent=2))
 
 
 if __name__ == "__main__":
