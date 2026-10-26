@@ -321,7 +321,9 @@ class GcpDatabaseTests(unittest.TestCase):
         Input: Long Unicode IDs with identical indexed prefixes and encoded scope values.
         Output: Complete ordered pages without overlap, truncation, or foreign records.
         """
-        scope = "项目/quote'\x00scope"
+        # Python 3.10 CSV rejects NUL fields in both existing backends. Use a
+        # newline here to exercise CSV escapes on every supported Python version.
+        scope = "项目/quote'\nscope"
         identifiers = ["长" * 1000 + f"-{index:03d}" for index in range(20)]
         records = [HttpStore.event_to_record(event(identifier)) for identifier in identifiers]
         records = [{**record, "project": scope, "timestamp": "2026-01-01T00:00:00Z"}
@@ -343,6 +345,15 @@ class GcpDatabaseTests(unittest.TestCase):
                 break
             cursor = rows[-1]["timestamp"], rows[-1]["event_id"]
         self.assertEqual(found, sorted(identifiers, reverse=True))
+
+    def test_native_stream_preserves_null_characters_in_identity_fields(self):
+        record = HttpStore.event_to_record(event("null-scope"))
+        record["project"] = "scope\x00value"
+        self.database.publish([record])
+        self.assertEqual(
+            [HttpStore.record_to_event(row["value"]) for row in all_records(self.database)],
+            [HttpStore.record_to_event(record)],
+        )
 
     def test_canonical_duplicates_and_conflicts_within_one_batch(self):
         record = HttpStore.event_to_record(event("same"))
