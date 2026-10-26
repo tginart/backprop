@@ -239,8 +239,8 @@
     },
     {
       "path": "backend/records.py",
-      "bytes": 2040,
-      "sha256": "0a79b50b0709dbf205b259c4419e33317f18ec9f0ec10a5eeae0cd4691e9a993"
+      "bytes": 2077,
+      "sha256": "b2cd97033acf34e8e8e0e8cc978d4972cbb5a124899e21829d726588c057a968"
     },
     {
       "path": "backend/state.example.json",
@@ -2764,8 +2764,8 @@
     },
     {
       "path": "tests/test_gcp_backend.py",
-      "bytes": 27370,
-      "sha256": "93ade23a59932ff1ac4cc9fcf2c9e3926b2cb4f30e2198f52cbed696569a1686"
+      "bytes": 28080,
+      "sha256": "4b173105112a5c22945270641d042b7ec464099aa3c9c0c3afb6a7b47e7b376c"
     },
     {
       "path": "tests/test_gcp_deploy.py",

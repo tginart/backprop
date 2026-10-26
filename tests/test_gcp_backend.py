@@ -327,6 +327,17 @@ class GcpDatabaseTests(unittest.TestCase):
                                    {**record, "run_id": "different"}, record])
         self.assertEqual(self.database.end_offset(), 1)
 
+    def test_invalid_utf8_identity_rejects_the_whole_batch_before_a_transaction(self):
+        record = HttpStore.event_to_record(event("invalid"))
+        for field in ("event_id", "project", "entity", "run_id", "event_type", "timestamp"):
+            with self.subTest(field=field), \
+                    patch.object(self.client, "transaction", wraps=self.client.transaction) as transaction, \
+                    self.assertRaises(UnicodeError):
+                self.database.publish([HttpStore.event_to_record(event("valid")),
+                                       {**record, field: "invalid-\ud800"}])
+            transaction.assert_not_called()
+        self.assertEqual(self.database.end_offset(), 0)
+
     def test_large_payloads_and_deep_json_are_unindexed_record_bytes(self):
         record = HttpStore.event_to_record(event("large"))
         nested = {"value": 1}

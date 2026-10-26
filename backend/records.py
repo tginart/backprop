@@ -30,6 +30,7 @@ def canonical_record(record: dict) -> tuple[dict, str]:
     for name in ("event_id", "run_id", "project", "entity", "event_type", "timestamp"):
         if not isinstance(record[name], str) or (name != "entity" and not record[name]):
             raise ValueError("Invalid Backprop event identity")
+        record[name].encode("utf-8")
     datetime.fromisoformat(record["timestamp"].replace("Z", "+00:00"))
     if not isinstance(record["payload"], str):
         raise ValueError("Backprop record payload must be encoded JSON")
