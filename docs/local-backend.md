@@ -14,10 +14,10 @@ plus the dashboard asset manifest, live directly under `backend/`.
 
 The SDK retains event models and shared durable journals. Dashboard components
 use the shared data and authentication interfaces. Both clients use one connection
-configuration whose `backend` field selects `foundry` or `local`. Existing Foundry
+configuration whose `backend` field selects `foundry`, `local`, or `gcp`. Existing Foundry
 files without that field remain compatible. See the [backend contract](../backend/README.md).
 
-The distribution installs both adapters as `backprop_backend` alongside `backprop`.
+The distribution installs all three adapters as `backprop_backend` alongside `backprop`.
 Use `python -m pip install -e .` for development from a checkout. Legacy SDK module
 imports and Foundry command paths remain compatible. A source checkout also
 supports `PYTHONPATH=sdk` without an editable installation; its package bridge

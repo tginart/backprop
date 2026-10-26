@@ -5,6 +5,7 @@
  */
 import {createAdapter as createFoundry} from './foundry.js';
 import {createAdapter as createLocal} from './local.js';
+import {createAdapter as createGcp} from './gcp.js';
 
 let adapter;
 
@@ -12,6 +13,7 @@ function select(settings) {
     const name = settings.backend === undefined ? 'foundry' : settings.backend;
     if (name === 'foundry') return createFoundry();
     if (name === 'local') return createLocal();
+    if (name === 'gcp') return createGcp();
     throw new Error('Unknown Backprop backend');
 }
 
@@ -35,7 +37,7 @@ export const runControlScope = () => adapter.runControlScope();
 export const requestError = (...options) => adapter.requestError(...options);
 
 export function exportConfiguration(config) {
-    const keys = ['backend', 'local_id', 'host', 'stream_dataset_rid',
+    const keys = ['backend', 'local_id', 'gcp_id', 'host', 'stream_dataset_rid',
         'media_dataset_rid', 'stream_view_rid', 'branch', 'app_url', 'client_id',
         'stream_write_scope', 'map_resource_origins'];
     return Object.fromEntries(keys.filter(key => config?.[key] !== undefined)
@@ -45,3 +47,4 @@ export function exportConfiguration(config) {
 export const resolveWorkspaceIdentity = (request, options) => adapter.resolveWorkspaceIdentity(request, options);
 
 export const getArchiveOffsets = response => adapter.getArchiveOffsets?.(response) || null;
+export const getRequestTimeoutMs = path => adapter.getRequestTimeoutMs?.(path);

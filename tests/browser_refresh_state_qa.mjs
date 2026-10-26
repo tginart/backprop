@@ -376,6 +376,7 @@ async function _verifyIdleControls({open, poll, settle}) {
             assert(await control.evaluate(node => document.activeElement === node));
         }
         const select = page.locator('[data-run-page-size]');
+        await _observeNativePickerRenders(page);
         await select.click();
         assert(await select.evaluate(node => node.matches(':open')));
         const before = await page.evaluate(() => window.replacements);
@@ -384,14 +385,52 @@ async function _verifyIdleControls({open, poll, settle}) {
             !document.querySelector('[data-action="refresh"]').disabled
         );
         await settle(page);
-        assert.equal(await page.evaluate(() => window.replacements), before);
+        const picker = await page.evaluate(() => ({
+            open: document.querySelector('[data-run-page-size]').matches(':open'),
+            renders: window.pickerRenderStates,
+            replacements: window.replacements,
+        }));
+        // Native pickers can close as browser automation advances. Check the
+        // picker at the DOM mutation boundary, before a render can close it.
+        assert(picker.renders.every(isOpen => !isOpen),
+            'A refresh must not replace the view while a native picker is open');
+        if (picker.open) assert.equal(picker.replacements, before);
+        const afterPoll = picker.replacements;
         await select.selectOption('50');
-        await page.waitForFunction(before => window.replacements > before, before);
+        await page.waitForFunction(before => window.replacements > before, afterPoll);
         assert(await select.evaluate(node => document.activeElement === node));
         await poll(page);
     } finally {
         await page.close();
     }
+}
+
+/**
+ * Purpose: Observe native picker state before the app replaces its root contents.
+ * Input: A browser page with the real dashboard root.
+ * Output: Picker states at both supported DOM replacement entry points.
+ */
+async function _observeNativePickerRenders(page) {
+    await page.evaluate(() => {
+        const root = document.querySelector('#app');
+        const property = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        const replaceChildren = root.replaceChildren;
+        window.pickerRenderStates = [];
+        const observe = () => window.pickerRenderStates.push(
+            Boolean(root.querySelector('select:open,input:open'))
+        );
+        root.replaceChildren = function (...nodes) {
+            observe();
+            return replaceChildren.apply(this, nodes);
+        };
+        Object.defineProperty(root, 'innerHTML', {
+            get() { return property.get.call(this); },
+            set(value) {
+                observe();
+                property.set.call(this, value);
+            },
+        });
+    });
 }
 
 /**

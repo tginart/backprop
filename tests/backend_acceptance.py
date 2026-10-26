@@ -192,7 +192,8 @@ def main() -> None:
     Output: A credential-free JSON report and a nonzero exit code on failure.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--backend', choices=['local', 'foundry', 'both'], default='local', help='Backend scenario to execute')
+    parser.add_argument('--backend', choices=['local', 'foundry', 'gcp', 'both'], default='local', help='Backend scenario to execute')
+    parser.add_argument('--gcp-config', type=Path, help='GCP connection file; use ADC or BACKPROP_GCP_ACCESS_TOKEN')
     parser.add_argument('--foundry-config', type=Path, help='Existing Foundry connection file; no resources are provisioned')
     parser.add_argument('--deployment-credentials', action='store_true', help='Read the existing deployment secret with gcloud instead of environment credentials')
     parser.add_argument('--archive-timeout', type=float, default=420, help='Maximum seconds for independent SQL archive visibility')
@@ -221,6 +222,14 @@ def main() -> None:
                 parser.error('Provide environment credentials or --deployment-credentials')
             results.append(run_scenario(config, token=token, archive_timeout_s=args.archive_timeout))
             print('PASS: real Foundry SDK acceptance', flush=True)
+        if args.backend == 'gcp':
+            if not args.gcp_config:
+                parser.error('--gcp-config is required for real GCP tests')
+            config = json.loads(args.gcp_config.read_text())
+            if config.get('backend') != 'gcp':
+                parser.error('--gcp-config must explicitly select the GCP backend')
+            results.append(run_scenario(config, token=None, archive_timeout_s=args.archive_timeout))
+            print('PASS: real GCP SDK acceptance', flush=True)
     except Exception as error:
         results.append({'status': 'failed', 'error_type': type(error).__name__, 'message': str(error),
                         **getattr(error, 'acceptance_scope', {})})

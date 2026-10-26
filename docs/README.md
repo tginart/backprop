@@ -3,12 +3,23 @@
 Start with the [project overview and Quick Start](../README.md), then follow the guides
 below to deploy Backprop, log experiments and explore results.
 
+## Backend architecture
+
+Each backend README explains its data flow, resources, authentication, and operations.
+
+| Platform | Architecture |
+| --- | --- |
+| Foundry | [Hosted website, event stream/archive, and file dataset](../backend/foundry/README.md) |
+| Local SQLite | [Loopback HTTP server, SQLite, and local artifact files](../backend/local/README.md) |
+| Google Cloud | [Cloud Run, Firestore, GCS, and Google authentication](../backend/gcp/README.md) |
+
 ## Get started
 
 | Guide | Use it for |
 | --- | --- |
 | [Local backend](local-backend.md) | Start the loopback dashboard, configure the SDK, import journals and back up data. |
 | [Foundry setup](foundry-setup.md) | Create resources, configure authentication and deploy the browser app. |
+| [Google Cloud setup](gcp-setup.md) | Deploy Cloud Run/Firestore/GCS resources, configure Google authentication, verify and clean up. |
 | [Using Backprop](interface.md) | Compare runs, explore charts and inspect logs, files and artifacts. |
 | [Examples](../examples/README.md) | Run training, artifact pipelines, shared writers and offline sync. |
 
@@ -24,7 +35,7 @@ below to deploy Backprop, log experiments and explore results.
 
 | Guide | Use it for |
 | --- | --- |
-| [Backend verification](backend-verification.md) | Verify local and Foundry transports, installed packages and browser behavior. |
+| [Backend verification](backend-verification.md) | Verify backend transports, installed packages and browser behavior. |
 | [Updates and rollback](updates.md) | Update the SDK and browser app, or restore a previous version. |
 | [Dependency security](dependency-security.md) | Understand renderer protections and optional dependency risks. |
 | [Security policy](../SECURITY.md) | Report vulnerabilities privately and understand access boundaries. |

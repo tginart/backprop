@@ -9,7 +9,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from collections.abc import Iterator
 import csv
-from datetime import datetime
 import hashlib
 import io
 import json
@@ -22,9 +21,11 @@ import time
 import uuid
 
 from .queries import FIELDS, translate_query
+from backprop_backend.records import (
+    MAX_RECORD_BYTES, RecordConflict as LocalConflict, canonical_record as _canonical_record,
+)
 
 
-MAX_RECORD_BYTES = 900_000
 QUERY_RETENTION_S = 3600
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -52,10 +53,6 @@ CREATE TABLE IF NOT EXISTS imports (
     id TEXT PRIMARY KEY, state TEXT NOT NULL
 );
 """
-
-
-class LocalConflict(ValueError):
-    """The same immutable identity has different content."""
 
 
 class LocalDatabase:
@@ -311,34 +308,6 @@ class LocalDatabase:
                 (identifier, json.dumps(state, sort_keys=True)),
             )
         return state
-
-
-def _canonical_record(record: dict) -> tuple[dict, str]:
-    """
-    Purpose: Validate one event record before any database change.
-    Input: The stable tabular Backprop schema.
-    Output: A detached record and its canonical identity representation.
-    """
-    if not isinstance(record, dict) or set(record) != set(FIELDS.split(",")):
-        raise ValueError("Invalid Backprop stream record schema")
-    if type(record["schema_version"]) is not int or record["schema_version"] != 1:
-        raise ValueError("Unsupported Backprop event schema version")
-    for name in ("event_id", "run_id", "project", "entity", "event_type", "timestamp"):
-        if not isinstance(record[name], str) or (name != "entity" and not record[name]):
-            raise ValueError("Invalid Backprop event identity")
-    datetime.fromisoformat(record["timestamp"].replace("Z", "+00:00"))
-    if not isinstance(record["payload"], str):
-        raise ValueError("Backprop record payload must be encoded JSON")
-    payload = json.loads(record["payload"])
-    if not isinstance(payload, dict):
-        raise ValueError("Backprop event payload must be a JSON object")
-    record = {**record, "payload": json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), allow_nan=False,
-    )}
-    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    if len(canonical.encode()) > MAX_RECORD_BYTES:
-        raise ValueError("Backprop event exceeds the 900 KB record limit")
-    return record, canonical
 
 
 def _write_durable(destination: Path, data: bytes) -> None:

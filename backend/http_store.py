@@ -81,7 +81,7 @@ class HttpStore:
             req = request.Request(self.host + path, data=body, method=method,
                                   headers=headers)
             try:
-                with self.opener.open(req, timeout=self.config.get("timeout", 60)) as response:
+                with self.opener.open(req, timeout=self._request_timeout(path)) as response:
                     data = response.read()
                     if response.headers.get("Content-Encoding", "").lower() == "gzip":
                         try:
@@ -133,6 +133,9 @@ class HttpStore:
                                   retryable=can_retry,
                                   response_truncated=isinstance(exc, http.client.IncompleteRead)) from None
 
+
+    def _request_timeout(self, path: str) -> float:
+        return self.config.get("timeout", 60)
 
     @staticmethod
     def event_to_record(event):

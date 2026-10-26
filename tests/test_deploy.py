@@ -41,7 +41,7 @@ ASSETS.update({'artifact-collections.mjs', 'tensorboard-groups.mjs', 'tensorboar
 ASSETS.update(f"{scope}_{resolution}m.json"
               for scope in ("africa", "antarctica", "asia", "europe", "north-america", "oceania",
                             "south-america", "usa", "world") for resolution in (110, 50))
-ASSETS.update({"backends/connection.js", "backends/http.js", "backends/foundry.js", "backends/local.js"})
+ASSETS.update({"backends/connection.js", "backends/http.js", "backends/foundry.js", "backends/local.js", "backends/gcp.js"})
 PUBLIC_FIELDS = {"backend", "host", "client_id", "app_url", "stream_dataset_rid", "media_dataset_rid", "stream_view_rid", "branch", "map_resource_origins"}
 SECRET_MARKER = "operator-credential-must-never-ship"
 STATE = {"client_id": "public-client-identifier", "app_url": "https://backprop.example.com/",

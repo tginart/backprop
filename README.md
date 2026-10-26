@@ -1,11 +1,14 @@
 # Backprop
 
-Backprop brings W&B-style experiment tracking to Palantir Foundry or a local SQLite backend.
+Backprop brings W&B-style experiment tracking to Palantir Foundry, local SQLite, or Google Cloud.
 
 It provides a familiar Python API for experiment logging, distributed training,
-artifacts and experiment inspection. Choose Foundry for managed storage, hosting,
-authentication and permissions, or run the dashboard and storage API on your machine.
+artifacts and experiment inspection. Use Foundry for managed platform resources,
+local SQLite for one machine, or Cloud Run, Firestore, and GCS in your Google project.
 Backprop is independent of Weights & Biases and Palantir.
+
+All three backends use the same Python APIs and dashboard. The [backend
+READMEs](#how-it-runs) explain each platform's architecture, authentication, and operations.
 
 ![Backprop workspace comparing training and validation
 metrics](assets/images/workspace.png)
@@ -152,82 +155,27 @@ guide](docs/python-api-support.md#authentication) for credential settings. Each
 framework has its own Python requirements. Legacy fastai 1 has known dependency security
 limits; see [dependency security](docs/dependency-security.md).
 
-## How it Runs on Foundry
+## How it runs
 
-An installation uses a hosted static website, a streaming dataset for experiment events
-and a file dataset for media and artifacts. Training processes write directly to
-Foundry. There is no separate application server or database to run. The SDK uploads
-every five seconds by default, and the browser refreshes every 30 seconds.
+Every backend uses the same event model, durable SDK journal, replay rules, and
+browser views. The SDK uploads every five seconds by default; the browser refreshes
+every 30 seconds. The selected adapter determines hosting, storage, and authentication.
 
-```mermaid
-flowchart LR
-    Python[Training process] --> SDK[Backprop SDK + local retry journal]
-    SDK --> Events[Foundry event stream + archive]
-    SDK --> Files[Foundry file dataset]
-    Events --> Readers[Python read API + web app]
-    Files --> Readers
-```
+| Backend | Application and storage | Architecture and operations |
+| --- | --- | --- |
+| Foundry | Hosted static website, streaming dataset with archive, and file dataset. Clients use Foundry APIs directly. | [Foundry README](backend/foundry/README.md) |
+| Local SQLite | Loopback HTTP server, SQLite events and metadata, and a local artifact directory. | [Local SQLite README](backend/local/README.md) |
+| Google Cloud | Cloud Run dashboard/API, transactional Firestore events and metadata, and GCS artifacts. | [Google Cloud README](backend/gcp/README.md) |
 
-The SDK records run changes as events and keeps a durable local journal for retries and
-offline logging. The Python read API and browser reconstruct runs from recent stream
-events and archived history, applying the same ordering and deduplication rules.
-Configuration, summary and descriptive artifact edits are new events; artifact contents
-remain immutable.
+Each backend README includes its own flow diagram, connection instructions,
+authentication model, operational boundaries, and code map. Start with the
+[Foundry setup](docs/foundry-setup.md), [local setup](docs/local-backend.md), or
+[Google Cloud deployment](docs/gcp-setup.md) guide for the complete operator workflow.
 
-Media and artifact snapshots live in the file dataset. External artifact references keep
-their bytes at the original provider; `add_file` stores a snapshot in Foundry.
-
-Experiment projects are namespaces within an installation and share its dataset
-permissions. Reads currently reconstruct runs from events, so very large fleets would
-need additional indexing. The [setup guide](docs/foundry-setup.md) covers resource
-permissions, and [distributed logging](docs/distributed-logging.md) explains
-shared-writer behavior.
-
-Use the runs sidebar to choose which experiments appear on charts. Expand the runs table
-to filter, group and sort runs, or open a run to inspect its Charts, Overview, Logs,
-Files and Artifacts. Browsing choices are remembered locally. Custom panels, layout
-editing and named/shared workspaces are not available in 0.1.2; the [interface
-guide](docs/interface.md) describes current behavior.
-
-### Installation settings
-
-Each installation supplies its own Foundry host, project, public OAuth client and
-datasets. Start with the tracked configuration template:
-
-```bash
-cp deploy/config.example.json deploy/config.local.json
-```
-
-Set `host` to your Foundry HTTPS origin and follow the [setup
-guide](docs/foundry-setup.md) to create the resources. The configuration selects the
-deployment and resource state files, with paths relative to the configuration file.
-`deploy/config.local.json`, `deploy/state.json` and `backend/state.json` stay local and
-are ignored by Git. The tracked `*.example.json` files contain placeholders.
-
-Operator commands accept `--config PATH`, or use `BACKPROP_DEPLOY_CONFIG`. They read
-`BACKPROP_TOKEN`, then `FOUNDRY_TOKEN`, then an optional Google Cloud Secret Manager
-source configured locally. Google Cloud is required only for that last option. On
-training machines, `BACKPROP_CONFIG` selects the resource connection file.
-
-### Publishing updates
-
-From a source checkout, replace `VERSION` with an unused website version for your
-configured Foundry installation:
-
-```bash
-python deploy/deploy.py --config deploy/config.local.json --version VERSION
-```
-
-The script builds the website ZIP, waits for Foundry's asset scan, deploys the version
-and verifies the deployed version. To build the same ZIP for manual upload without
-credentials or API calls:
-
-```bash
-python deploy/deploy.py --config deploy/config.local.json --version VERSION --build-only backprop-site.zip
-```
-
-Keep the SDK wheel, source reference and website ZIP for each installed version. See
-[updates and rollback](docs/updates.md) for SDK and browser update procedures.
+Select a connection file with `BACKPROP_CONFIG`. Configuration and summary edits,
+artifact metadata, and cooperative stop requests remain events on every backend.
+Media and artifact snapshots keep immutable bytes in the selected backend's file
+storage. External artifact references retain their bytes at the original provider.
 
 ## W&B Python SDK Compatibility
 
@@ -281,7 +229,7 @@ guide](docs/python-api-support.md) for runtime requirements and limitations.
 ## Architectural Overview
 
 The repository separates the SDK (`sdk/backprop/`), dashboard (`web/`), and backend
-adapters (`backend/foundry/` and `backend/local/`). One connection configuration
+adapters (`backend/foundry/`, `backend/local/`, and `backend/gcp/`). One connection configuration
 selects the backend. Both clients read the same event schema to reconstruct runs,
 histories and artifact relationships. Browser authentication adapters live in
 `web/backends/`; shared Python connection and HTTP code lives under `backend/`.
@@ -293,8 +241,8 @@ histories and artifact relationships. Browser authentication adapters live in
 | Values and adapters | [`media.py`](sdk/backprop/media.py), [`integration`](sdk/backprop/integration/__init__.py) | Tables, media, artifacts, plotting, training hooks and optional framework callbacks. These use the same run and journal rather than separate upload paths. |
 | Experiment inspection | [`apis/public/api.py`](sdk/backprop/apis/public/api.py), [`replay.py`](sdk/backprop/apis/public/replay.py) | `Api` queries, returned run/file/artifact objects, event replay and public edits. |
 | Browser app | [`web/app.mjs`](web/app.mjs), [`api.js`](web/api.js), [`model.mjs`](web/model.mjs) | Navigation and views, authenticated reads, and reconstruction of the run model. Chart, table and media viewers live in separate modules. |
-| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py) | Foundry authentication and HTTP integration, or a loopback server with SQLite and artifact storage. |
-| Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py) | Provision resources and package/publish the static app. Foundry resource and deployment tools remain separate from the local server. |
+| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py), [`gcp/database.py`](backend/gcp/database.py) | Foundry integration, local SQLite storage, or transactional Firestore events with GCS artifacts. |
+| Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py), [`deploy/gcp_deploy.py`](deploy/gcp_deploy.py) | Provision and publish Foundry resources or deploy isolated Google Cloud resources. Local installations use the installed `backprop serve` CLI. |
 
 The [documentation index](docs/README.md) links the installation, migration and
 interface guides. See [contributing](CONTRIBUTING.md) for local development and test
