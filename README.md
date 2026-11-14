@@ -1,12 +1,12 @@
 # Backprop
 
-Backprop brings W&B-style experiment tracking to Palantir Foundry, local SQLite, or Google Cloud.
+Backprop brings W&B-style experiment tracking to Palantir Foundry, local SQLite, Google Cloud, or a shared GCS/S3 bucket.
 
 It provides a familiar Python API for experiment logging, distributed training,
-artifacts and experiment inspection. Backprop runs on three different backend
-platforms. GCP, Palantir Foundry, and Local SQLite.
+artifacts and experiment inspection. Backprop runs on four different backend
+platforms. GCP, Palantir Foundry, Local SQLite, and a GCS/S3 bucket.
 
-All three backends use the same Python APIs and dashboard. The [backend
+All four backends use the same Python APIs and dashboard. The [backend
 READMEs](#how-it-runs) explain each platform's architecture, authentication, and operations.
 
 ![Backprop workspace comparing training and validation
@@ -165,11 +165,12 @@ every 30 seconds. The selected adapter determines hosting, storage, and authenti
 | Foundry | Hosted static website, streaming dataset with archive, and file dataset. Clients use Foundry APIs directly. | [Foundry README](backend/foundry/README.md) |
 | Local SQLite | Loopback HTTP server, SQLite events and metadata, and a local artifact directory. | [Local SQLite README](backend/local/README.md) |
 | Google Cloud | Cloud Run dashboard/API, transactional Firestore events and metadata, and GCS artifacts. | [Google Cloud README](backend/gcp/README.md) |
+| Bucket | Training jobs write Parquet segments to GCS or S3; each viewer runs a loopback dashboard over a DuckDB mirror. | [Bucket README](backend/bucket/README.md) |
 
 Each backend README includes its own flow diagram, connection instructions,
 authentication model, operational boundaries, and code map. Start with the
-[Foundry setup](docs/foundry-setup.md), [local setup](docs/local-backend.md), or
-[Google Cloud deployment](docs/gcp-setup.md) guide for the complete operator workflow.
+[Foundry setup](docs/foundry-setup.md), [local setup](docs/local-backend.md),
+[Google Cloud deployment](docs/gcp-setup.md), or [bucket setup](docs/bucket-backend.md) guide for the complete operator workflow.
 
 Select a connection file with `BACKPROP_CONFIG`. Configuration and summary edits,
 artifact metadata, and cooperative stop requests remain events on every backend.
@@ -228,7 +229,7 @@ guide](docs/python-api-support.md) for runtime requirements and limitations.
 ## Architectural Overview
 
 The repository separates the SDK (`sdk/backprop/`), dashboard (`web/`), and backend
-adapters (`backend/foundry/`, `backend/local/`, and `backend/gcp/`). One connection configuration
+adapters (`backend/foundry/`, `backend/local/`, `backend/gcp/`, and `backend/bucket/`). One connection configuration
 selects the backend. Both clients read the same event schema to reconstruct runs,
 histories and artifact relationships. Browser authentication adapters live in
 `web/backends/`; shared Python connection and HTTP code lives under `backend/`.
@@ -240,7 +241,7 @@ histories and artifact relationships. Browser authentication adapters live in
 | Values and adapters | [`media.py`](sdk/backprop/media.py), [`integration`](sdk/backprop/integration/__init__.py) | Tables, media, artifacts, plotting, training hooks and optional framework callbacks. These use the same run and journal rather than separate upload paths. |
 | Experiment inspection | [`apis/public/api.py`](sdk/backprop/apis/public/api.py), [`replay.py`](sdk/backprop/apis/public/replay.py) | `Api` queries, returned run/file/artifact objects, event replay and public edits. |
 | Browser app | [`web/app.mjs`](web/app.mjs), [`api.js`](web/api.js), [`model.mjs`](web/model.mjs) | Navigation and views, authenticated reads, and reconstruction of the run model. Chart, table and media viewers live in separate modules. |
-| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py), [`gcp/database.py`](backend/gcp/database.py) | Foundry integration, local SQLite storage, or transactional Firestore events with GCS artifacts. |
+| Backend adapters | [`foundry/store.py`](backend/foundry/store.py), [`local/server.py`](backend/local/server.py), [`gcp/database.py`](backend/gcp/database.py), [`bucket/mirror.py`](backend/bucket/mirror.py) | Foundry integration, local SQLite storage, transactional Firestore events with GCS artifacts, or Parquet segments in a bucket with a DuckDB mirror. |
 | Installation tools | [`backend/provision.py`](backend/provision.py), [`deploy/deploy.py`](deploy/deploy.py), [`deploy/gcp_deploy.py`](deploy/gcp_deploy.py) | Provision and publish Foundry resources or deploy isolated Google Cloud resources. Local installations use the installed `backprop serve` CLI. |
 
 The [documentation index](docs/README.md) links the installation, migration and

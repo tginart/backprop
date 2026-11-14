@@ -1,12 +1,12 @@
 # Backend connection contract
 
 The SDK and dashboard use one public connection configuration. Its `backend`
-field selects `foundry`, `local`, or `gcp`. Files without that field select Foundry for
+field selects `foundry`, `local`, `gcp`, or `bucket`. Files without that field select Foundry for
 compatibility. Credentials stay outside the configuration.
 
 For platform architecture, data flow, authentication, and operations, see the
-[Foundry](foundry/README.md), [local SQLite](local/README.md), and
-[Google Cloud](gcp/README.md) backend READMEs.
+[Foundry](foundry/README.md), [local SQLite](local/README.md),
+[Google Cloud](gcp/README.md), and [bucket](bucket/README.md) backend READMEs.
 
 The SDK reads the file selected by `BACKPROP_CONFIG`. The dashboard reads the
 same shape from `config.json`. Local startup writes `connection.json` for the SDK
@@ -47,6 +47,8 @@ apply; clear an old host or resource override before you switch connection files
   and read-only journal import.
 - `gcp/`: Google credentials, Cloud Run HTTP policy, native Firestore transactions,
   partition cursors, immutable GCS artifacts, and bounded multipart uploads.
+- `bucket/`: GCS/S3/file object adapters, immutable Parquet segments, the DuckDB
+  mirror behind `backprop serve gs://…`, and the direct SDK store.
 - `assets.py` and `dashboard_assets.json`: the explicit public asset boundary used
   by the installed local server and Foundry website packaging.
 
@@ -57,7 +59,7 @@ contract, and `foundry.js`, `local.js`, and `gcp.js` own browser authentication 
 Dashboard views and SDK consumers do not select a backend. Legacy SDK module names forward to backend
 implementations so existing imports and test patch identities remain valid.
 
-Wheels install all three adapters as `backprop_backend`, with all dashboard resources.
+Wheels install all four adapters as `backprop_backend`, with all dashboard resources.
 Use `python -m pip install -e .` for source development. A new backend adapter can
 use these interfaces without a backend branch in the SDK or dashboard components.
 

@@ -12,6 +12,7 @@ Each backend README explains its data flow, resources, authentication, and opera
 | Foundry | [Hosted website, event stream/archive, and file dataset](../backend/foundry/README.md) |
 | Local SQLite | [Loopback HTTP server, SQLite, and local artifact files](../backend/local/README.md) |
 | Google Cloud | [Cloud Run, Firestore, GCS, and Google authentication](../backend/gcp/README.md) |
+| Bucket | [Parquet segments in GCS or S3, read through a local DuckDB mirror](../backend/bucket/README.md) |
 
 ## Get started
 
@@ -19,6 +20,7 @@ Each backend README explains its data flow, resources, authentication, and opera
 | --- | --- |
 | [Local backend](local-backend.md) | Start the loopback dashboard, configure the SDK, import journals and back up data. |
 | [Foundry setup](foundry-setup.md) | Create resources, configure authentication and deploy the browser app. |
+| [Bucket backend](bucket-backend.md) | Log directly to a GCS or S3 prefix and view it with a local dashboard. |
 | [Google Cloud setup](gcp-setup.md) | Deploy Cloud Run/Firestore/GCS resources, configure Google authentication, verify and clean up. |
 | [Using Backprop](interface.md) | Compare runs, explore charts and inspect logs, files and artifacts. |
 | [Examples](../examples/README.md) | Run training, artifact pipelines, shared writers and offline sync. |
