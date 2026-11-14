@@ -64,7 +64,11 @@ CREATE TEMP TABLE staged (
 )
 """
 LOAD_SEGMENT = (f"INSERT INTO staged SELECT ?, file_row_number, {FIELDS} "
-                "FROM read_parquet(?, file_row_number = true)")
+                "FROM read_parquet(?, file_row_number = true, hive_partitioning = false)")
+# Only these errors prove that a segment's contents are invalid. Other errors,
+# for example out of memory or I/O, propagate so that a later refresh retries.
+INVALID_SEGMENT_ERRORS = ("InvalidInputException", "BinderException",
+                          "ConstraintException", "ConversionException")
 INSERT_NEW = f"""
 INSERT INTO events
 SELECT ? + row_number() OVER (ORDER BY segment, row_index), {FIELDS}, segment
@@ -377,24 +381,18 @@ class BucketMirror:
         Input: Segment keys and their local files, sorted by key.
         Output: The number of new events.
         Method:
-            1. Load each unseen file into the staged table. A file that DuckDB
-               cannot read is marked invalid and reported.
+            1. Load each unseen file into the staged table. A file with invalid
+               contents is marked invalid and reported. Other errors propagate.
             2. In one transaction, give each new event_id the next offset in
                (segment, row) order, record conflicts and record the segments.
             3. After the commit, advance the boundary that readers use.
         """
         with self._lock:
-            loaded, invalid = [], []
-            for key, path in files:
-                if key in self._seen:
-                    continue
-                try:
-                    self._writer.execute(LOAD_SEGMENT, [key, str(path)])
-                    loaded.append(key)
-                except self._duckdb.Error as error:
-                    invalid.append(key)
-                    print(f"Backprop bucket segment {key} is invalid and was skipped: {error}",
-                          file=sys.stderr, flush=True)
+            try:
+                loaded, invalid = self._stage(files)
+            except BaseException:
+                self._writer.execute("DELETE FROM staged")
+                raise
             if not loaded and not invalid:
                 return 0
             try:
@@ -420,6 +418,27 @@ class BucketMirror:
             print(f"Backprop bucket kept the first copy of {len(conflicts)} conflicting "
                   "event IDs", file=sys.stderr, flush=True)
         return added
+
+    def _stage(self, files: list[tuple[str, Path]]) -> tuple[list[str], list[str]]:
+        """
+        Purpose: Load unseen segment files into the staged table.
+        Input: Segment keys and their local files.
+        Output: The loaded keys and the keys whose contents are invalid.
+        Note: A resource or I/O error propagates, and the segment stays unseen.
+        """
+        invalid_errors = tuple(getattr(self._duckdb, name) for name in INVALID_SEGMENT_ERRORS)
+        loaded, invalid = [], []
+        for key, path in files:
+            if key in self._seen:
+                continue
+            try:
+                self._writer.execute(LOAD_SEGMENT, [key, str(path)])
+                loaded.append(key)
+            except invalid_errors as error:
+                invalid.append(key)
+                print(f"Backprop bucket segment {key} is invalid and was skipped: {error}",
+                      file=sys.stderr, flush=True)
+        return loaded, invalid
 
     def _check_conflicts(self, prepared: list[tuple[dict, str]]) -> None:
         records: dict[str, dict] = {}

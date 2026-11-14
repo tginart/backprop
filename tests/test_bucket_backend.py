@@ -26,8 +26,9 @@ except ImportError as error:
 import backprop
 from backprop.failures import retryable_failure
 from backprop_backend.bucket.cache import ObjectCache
-from backprop_backend.bucket.config import cache_directory, normalize_bucket_config
-from backprop_backend.bucket.mirror import SWEEP_INTERVAL_S, BucketMirror
+from backprop_backend.bucket.config import (cache_directory, canonical_uri,
+                                            normalize_bucket_config)
+from backprop_backend.bucket.mirror import LOAD_SEGMENT, SWEEP_INTERVAL_S, BucketMirror
 from backprop_backend.bucket.objects import (BucketError, FileObjects, GcsObjects,
                                              open_object_store)
 from backprop_backend.bucket.segments import (control_prefix, decode_segment,
@@ -269,6 +270,45 @@ class MirrorTests(BucketTestCase):
         self.assertEqual(moved.end_offset(), 0)
 
 
+    def test_numeric_run_ids_are_not_hive_partition_values(self) -> None:
+        mirror = self.mirror()
+        write_records(self.objects, [record("a", run_id="0001")], now=moment(EPOCH_S))
+        self.assertEqual(mirror.refresh(), 1)
+        self.assertEqual([row["run_id"] for row in mirror.select_records()], ["0001"])
+        self.assertEqual(len(mirror.select_records(project="project", run_id="0001")), 1)
+
+    def test_only_invalid_contents_quarantine_a_segment(self) -> None:
+        import duckdb
+        mirror = self.mirror()
+        self.objects.put_create_only("events/project=project/run_id=run-1/0-bad.parquet",
+                                     data=b"not parquet")
+        write_records(self.objects, [record("a")], now=moment(EPOCH_S))
+        real = mirror._writer
+        mirror._writer = _FailFirstLoad(real, duckdb.OutOfMemoryException("out of memory"))
+        with self.assertRaises(duckdb.OutOfMemoryException):
+            mirror.refresh()
+        mirror._writer = real
+        self.assertEqual(mirror.refresh(), 1)
+        self.assertEqual([row["event_id"] for row in mirror.select_records()], ["a"])
+
+
+class _FailFirstLoad:
+    """Raise one error on the first segment load, then defer to the real cursor."""
+
+    def __init__(self, cursor, error: Exception) -> None:
+        self._cursor, self._error = cursor, error
+
+    def execute(self, sql: str, parameters=None):
+        if sql == LOAD_SEGMENT and self._error is not None:
+            error, self._error = self._error, None
+            raise error
+        return self._cursor.execute(sql, parameters) if parameters is not None \
+            else self._cursor.execute(sql)
+
+    def __getattr__(self, name: str):
+        return getattr(self._cursor, name)
+
+
 class StoreTests(BucketTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -318,6 +358,15 @@ class StoreTests(BucketTestCase):
                                       payload={"action": "stop", "instance_id": instance})])
         self.assertEqual([e["event_id"] for e in reader.poll()], ["s1"])
         self.assertEqual(reader.poll(), [])
+
+    def test_escaped_file_uris_stay_escaped_and_open(self) -> None:
+        uri = "file://" + str(self.root) + "/my%20bucket%23one"
+        self.assertEqual(canonical_uri(uri), uri)
+        self.assertEqual(canonical_uri(canonical_uri(uri)), uri)
+        store = BucketStore({"backend": "bucket", "uri": uri})
+        store.publish([event("a")])
+        self.assertTrue((self.root / "my bucket#one" / "_backprop").is_dir())
+        self.assertEqual([e["event_id"] for e in store.read_events("project", "run-1")], ["a"])
 
     def test_connection_selects_and_snapshots_the_bucket_store(self) -> None:
         with patch.dict(os.environ, {"BACKPROP_BACKEND": "bucket", "BACKPROP_BUCKET_URI": self.uri,

@@ -10,7 +10,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from backprop_backend.local.config import DEFAULT_PORT, MEDIA_RID, STREAM_RID
 
@@ -53,7 +53,8 @@ def parse_bucket_uri(uri: str) -> tuple[str, str, str]:
 def canonical_uri(uri: str) -> str:
     scheme, bucket, prefix = parse_bucket_uri(uri)
     if scheme == "file":
-        return "file://" + prefix
+        # Re-escape the decoded path so that parse_bucket_uri can read it again.
+        return "file://" + quote(prefix, safe="/")
     return f"{scheme}://{bucket}/{prefix}".rstrip("/")
 
 

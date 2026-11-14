@@ -119,13 +119,13 @@
     },
     {
       "path": "backend/bucket/config.py",
-      "bytes": 4623,
-      "sha256": "db0733f68b0e24eacff74480531e4d61e586806f362040a530d9c041f6573056"
+      "bytes": 4728,
+      "sha256": "53fbe64670976d1c6b36001386c97e5befd8d9bec9b7f2dc274bd60824d1e3fa"
     },
     {
       "path": "backend/bucket/mirror.py",
-      "bytes": 20229,
-      "sha256": "bd220906d3ca6c6de6c9be8159f552310a3c40cea19deef19e0abf0ac07053d3"
+      "bytes": 21220,
+      "sha256": "c7b1d049c500a3a9bf93cbb6ff54720324b12145b3594e06b0c11d7e04042e1e"
     },
     {
       "path": "backend/bucket/objects.py",
@@ -2584,8 +2584,8 @@
     },
     {
       "path": "tests/test_bucket_backend.py",
-      "bytes": 23013,
-      "sha256": "f08b8b7a29bdc0441c71a5d1877590e22aaeca17585d6eacfcf4251b87d77808"
+      "bytes": 25354,
+      "sha256": "adbfa04dd47c43cb14e7c6b65fc9fda10458945effc783b3e768b097603095ce"
     },
     {
       "path": "tests/test_capture_diagnostics.py",
