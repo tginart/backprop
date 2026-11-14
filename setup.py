@@ -71,7 +71,7 @@ setup(
     packages=[*find_packages("sdk", include=["backprop", "backprop.*"]),
               "backprop_backend",
               "backprop_backend.local", "backprop_backend.foundry",
-              "backprop_backend.gcp"],
+              "backprop_backend.gcp", "backprop_backend.bucket"],
     package_dir={"": "sdk", "backprop_backend": "backend"},
     package_data={"backprop_backend": ["dashboard_assets.json"]},
     cmdclass={"build_py": BuildDashboard},
