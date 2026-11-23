@@ -52,6 +52,9 @@ Pillow >=12.3. MoviePy 2.2.1 requires Pillow <12 and cannot satisfy the package'
 floor. Replacing the encoder requires a compatible dependency set as well as changes to
 its integration.
 
+The `bucket` extra adds DuckDB >=1.1,<2 and google-cloud-storage >=3,<4. S3 buckets
+also need the `aws` extra (boto3). DuckDB is imported only by the bucket backend.
+
 ## Model files
 
 Backprop's model helpers transfer checkpoint bytes without unpickling or loading models.

@@ -36,19 +36,29 @@ CSP = "; ".join([
 ])
 
 
-def create_server(directory: str | Path, *, host: str = "127.0.0.1",
+def create_server(directory: str | Path | None = None, *, host: str = "127.0.0.1",
                   port: int = DEFAULT_PORT,
-                  write_connection: bool = True) -> ThreadingHTTPServer:
+                  write_connection: bool = True,
+                  database=None,
+                  handler_class: type[BaseHTTPRequestHandler] | None = None,
+                  ) -> ThreadingHTTPServer:
     """
     Purpose: Bind one loopback server and write its explicit connection file.
-    Input: The data directory, loopback address, and TCP port.
+    Input: The data directory, loopback address, and TCP port. Another backend
+        can pass its own database and handler instead of a directory.
     Output: A server that the caller must close.
+    Note: An injected database owns its connection details, so no
+        connection.json is written for it.
     """
+    assert (directory is None) != (database is None), "Pass a directory or a database"
     authority = f"[{host}]" if ":" in host else host
     local_config(f"http://{authority}:{port or DEFAULT_PORT}")
-    database = LocalDatabase(directory)
+    if database is None:
+        database = LocalDatabase(directory)
+    else:
+        write_connection = False
     server_class = _IPv6Server if ":" in host else ThreadingHTTPServer
-    server = server_class((host, port), _Handler)
+    server = server_class((host, port), handler_class or _Handler)
     server.daemon_threads = False
     server.database = database
     server.origin = f"http://{authority}:{server.server_port}"
@@ -62,16 +72,21 @@ def create_server(directory: str | Path, *, host: str = "127.0.0.1",
 
 
 @contextmanager
-def running_server(directory: str | Path, *, host: str = "127.0.0.1",
+def running_server(directory: str | Path | None = None, *, host: str = "127.0.0.1",
                    port: int = 0,
-                   write_connection: bool = True) -> Iterator[ThreadingHTTPServer]:
+                   write_connection: bool = True,
+                   database=None,
+                   handler_class: type[BaseHTTPRequestHandler] | None = None,
+                   ) -> Iterator[ThreadingHTTPServer]:
     """
     Purpose: Own the server thread and wait for active requests at shutdown.
-    Input: A data directory and an optional loopback socket address.
+    Input: A data directory or an injected database, and an optional address.
     Output: A live server within the context manager.
+    Note: A database with a close() method is closed after the server stops.
     """
     server = create_server(directory, host=host, port=port,
-                           write_connection=write_connection)
+                           write_connection=write_connection, database=database,
+                           handler_class=handler_class)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -80,6 +95,8 @@ def running_server(directory: str | Path, *, host: str = "127.0.0.1",
         server.shutdown()
         server.server_close()
         thread.join()
+        if callable(getattr(server.database, "close", None)):
+            server.database.close()
 
 
 def serve(directory: str, *, host: str = "127.0.0.1", port: int = DEFAULT_PORT,

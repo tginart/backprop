@@ -366,6 +366,7 @@ class Journal:
                     if self.ack >= target_count:
                         return
                     batch, total = [], 0
+                    max_count, max_bytes = getattr(type(self.sink), "publish_batch_limits", (100, 512_000))
                     end_offset = self._byte_offset
                     with self.event_path.open("rb") as source:
                         source.seek(self._byte_offset)
@@ -373,7 +374,7 @@ class Journal:
                             if not line.strip():
                                 end_offset += len(line)
                                 continue
-                            if batch and (len(batch) >= min(100, target_count - self.ack) or total + len(line) > 512_000):
+                            if batch and (len(batch) >= min(max_count, target_count - self.ack) or total + len(line) > max_bytes):
                                 break
                             batch.append(json.loads(line))
                             total += len(line)

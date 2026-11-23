@@ -13,6 +13,7 @@ PUBLIC_DOCUMENTATION = frozenset({
  'docs/dependency-security.md', 'docs/distributed-logging.md',
  'docs/foundry-setup.md', 'docs/interface.md', 'docs/python-api-support.md',
  'docs/local-backend.md', 'docs/backend-verification.md', 'docs/gcp-setup.md',
+ 'backend/bucket/README.md', 'docs/bucket-backend.md',
  'docs/updates.md', 'examples/README.md', 'tests/fixtures/MAP-FIXTURES.md',
 })
 

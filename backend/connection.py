@@ -26,6 +26,7 @@ def load_config(path: str | Path | None = None) -> dict:
         "backend": "BACKPROP_BACKEND", "host": "BACKPROP_HOST",
         "stream_dataset_rid": "BACKPROP_STREAM_DATASET_RID",
         "media_dataset_rid": "BACKPROP_MEDIA_DATASET_RID", "app_url": "BACKPROP_APP_URL",
+        "uri": "BACKPROP_BUCKET_URI",
     }.items():
         if os.environ.get(environment):
             data[field] = os.environ[environment]
@@ -39,6 +40,9 @@ def normalize_config(config: dict) -> dict:
     if _backend_name(config) == "local":
         from .local.config import normalize_local_config
         return normalize_local_config(config)
+    if _backend_name(config) == "bucket":
+        from .bucket.config import normalize_bucket_config
+        return normalize_bucket_config(config)
     return dict(config)
 
 
@@ -54,6 +58,9 @@ def create_store(config: dict, token: str | None = None) -> Any:
     if _backend_name(config) == "local":
         from .local.store import LocalStore
         return LocalStore(config)
+    if _backend_name(config) == "bucket":
+        from .bucket.store import BucketStore
+        return BucketStore(config)
     from .foundry.store import FoundryStore
     if not config.get("host") or not config.get("stream_dataset_rid"):
         from backprop.transport import BackpropError
@@ -76,6 +83,9 @@ def authenticate_candidate(*, load_config: Callable, native_store: Callable,
         return authenticate(config=config, native_store=native_store, **options)
     if _backend_name(config or {}) == "local":
         from .local.auth import authenticate_candidate as authenticate
+        return authenticate(config=config, native_store=native_store, **options)
+    if _backend_name(config or {}) == "bucket":
+        from .bucket.auth import authenticate_candidate as authenticate
         return authenticate(config=config, native_store=native_store, **options)
     from .foundry.login_session import authenticate_candidate as authenticate
     return authenticate(load_config=load_config, native_store=native_store, **options)
@@ -116,12 +126,28 @@ def credential_values() -> list[str | None]:
 def snapshot_store(store: Any) -> dict:
     from .gcp.store import GcpStore
     from .http_store import HttpStore
+    if _is_bucket_store(store):
+        return {"kind": "backend", "config": dict(store.config), "token": None}
     if isinstance(store, GcpStore):
         return {"kind": "backend", "config": dict(store.config),
                 "token": store._explicit_token}
     if isinstance(store, HttpStore):
         return {"kind": "backend", "config": dict(store.config), "token": store.token}
     return {"kind": "provided", "sink": store}
+
+
+def is_backend_store(sink: Any) -> bool:
+    """Return True for a store that this package built from a connection."""
+    from .http_store import HttpStore
+    return isinstance(sink, HttpStore) or _is_bucket_store(sink)
+
+
+def _is_bucket_store(store: Any) -> bool:
+    # A bucket store can exist only if its module was imported, so this check
+    # never imports the optional bucket dependencies.
+    import sys
+    module = sys.modules.get("backprop_backend.bucket.store")
+    return module is not None and isinstance(store, module.BucketStore)
 
 
 def restore_store(descriptor: dict) -> Any:
@@ -134,7 +160,7 @@ def restore_store(descriptor: dict) -> Any:
 
 def _backend_name(config: dict) -> str:
     name = config.get("backend", "foundry")
-    if name not in {"foundry", "local", "gcp"}:
+    if name not in {"foundry", "local", "gcp", "bucket"}:
         raise ValueError("Unknown Backprop backend")
     return name
 
@@ -158,6 +184,10 @@ def prepare_init_candidate(settings: Any, supplied: Any, deployment: dict | None
         candidate = authenticate_candidate(config=config, load_config=lambda: config,
             native_store=native_store, host=config.get("host"))
         return config, candidate
+    if _backend_name(config) == "bucket":
+        candidate = authenticate_candidate(config=config, load_config=lambda: config,
+            native_store=native_store)
+        return config, candidate
     from .foundry.login_session import prepare_init_candidate as prepare
     return prepare(settings, supplied, config, load_config=load_config,
                    native_store=native_store, setup=setup)
@@ -165,7 +195,8 @@ def prepare_init_candidate(settings: Any, supplied: Any, deployment: dict | None
 
 def current_init_session(host: str | None = None) -> AuthCandidate | None:
     from .foundry.login_session import current_init_session as current
-    if host is not None and host.startswith("http:"):
+    # Only Foundry sessions exist, and Foundry hosts are HTTPS origins.
+    if host is not None and not host.startswith("https:"):
         return None
     return current(host)
 

@@ -388,8 +388,8 @@ class Run:
         try:
             return bounded_call(function, max(0.000001, self._init_deadline-time.monotonic()), "init")
         except TimeoutError as error:
-            from backprop_backend.http_store import HttpStore
-            if self._sink is None or isinstance(self._sink, HttpStore):
+            from backprop_backend.connection import is_backend_store
+            if self._sink is None or is_backend_store(self._sink):
                 error._backprop_init_transport_timeout = True
             raise
 

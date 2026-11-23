@@ -9,8 +9,8 @@
     },
     {
       "path": ".github/workflows/test.yml",
-      "bytes": 1890,
-      "sha256": "a64a0615bdb471ba17194d745a3e4d589c5a0b1ce82c4573b68e7e8ba6b5da2c"
+      "bytes": 1907,
+      "sha256": "51984168db43be4a69f4f9f85515b122fd0d6149220f3e6ed3cb835ae08349e2"
     },
     {
       "path": ".gitignore",
@@ -29,8 +29,8 @@
     },
     {
       "path": "MANIFEST.in",
-      "bytes": 473,
-      "sha256": "aac15a8dfb4a1b481a4f8a9d98436232d3a21bfb608ae2d65b08ac527a4d1677"
+      "bytes": 511,
+      "sha256": "6abd47067e289c46be5882e0414901a62514052f1a67aceb7f4504e36f3295d5"
     },
     {
       "path": "NOTICE",
@@ -39,8 +39,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 12983,
-      "sha256": "e126cc81a5c9e0ae5598c83aa0d94face8059e2c118291066bd0a40d4ce58d8c"
+      "bytes": 13348,
+      "sha256": "2b0414d05ffc7ed0da7aa26c248000bc543741ffdca83018404e8ac8e79f2321"
     },
     {
       "path": "RELEASE_NOTES.md",
@@ -74,8 +74,8 @@
     },
     {
       "path": "backend/README.md",
-      "bytes": 3904,
-      "sha256": "61fe4b61cec50f040e9a6d687fde17593bb435f3e475066bf9e72b7de302fa99"
+      "bytes": 4091,
+      "sha256": "7eb991478a72406ef9606135ad008df401da1f9ea7f98dfc630d5664d22f99be"
     },
     {
       "path": "backend/__init__.py",
@@ -98,14 +98,64 @@
       "sha256": "6bd73faeb26f5aacb5630e7e9cd0b1dbbf49573a73b65a1ec37dd440693f4cff"
     },
     {
+      "path": "backend/bucket/README.md",
+      "bytes": 5563,
+      "sha256": "7c16316033f850ebb7ecd8539093469bac5006f0f2e8f5a3be2b7549bf133fa5"
+    },
+    {
+      "path": "backend/bucket/__init__.py",
+      "bytes": 218,
+      "sha256": "f37d1735477a1bd34725881d7a3d51f3ea10dd7cb7cb102c7e0caeca17f0f4be"
+    },
+    {
+      "path": "backend/bucket/auth.py",
+      "bytes": 1290,
+      "sha256": "30b62f64ae158b2aa4b2bccd10ee6f2a70897dd62c173df6bef86f7ea7d451dd"
+    },
+    {
+      "path": "backend/bucket/cache.py",
+      "bytes": 3077,
+      "sha256": "ac2603476a2d530dced951bcc3c9bbd03ce5030233c647facb2bcd878164b95c"
+    },
+    {
+      "path": "backend/bucket/config.py",
+      "bytes": 4728,
+      "sha256": "53fbe64670976d1c6b36001386c97e5befd8d9bec9b7f2dc274bd60824d1e3fa"
+    },
+    {
+      "path": "backend/bucket/mirror.py",
+      "bytes": 21220,
+      "sha256": "c7b1d049c500a3a9bf93cbb6ff54720324b12145b3594e06b0c11d7e04042e1e"
+    },
+    {
+      "path": "backend/bucket/objects.py",
+      "bytes": 13748,
+      "sha256": "5cc160976b6df52c1cf497c5f4a44aa217332ae2e2125905b65750bceb9c4b59"
+    },
+    {
+      "path": "backend/bucket/segments.py",
+      "bytes": 7034,
+      "sha256": "0463d72b6be4f66f2949f26862f9557f55b69edee7fa3b4461391e788fa9ce6d"
+    },
+    {
+      "path": "backend/bucket/server.py",
+      "bytes": 4380,
+      "sha256": "fa77431b4637e30692b6adb7c506adc200f2428d10a0e61fef6588cb215a77e2"
+    },
+    {
+      "path": "backend/bucket/store.py",
+      "bytes": 10506,
+      "sha256": "a3cf3c91a4cf8492a1f5b959bd3157e6bd164720358b22c17f2026c65fedcc87"
+    },
+    {
       "path": "backend/cli.py",
-      "bytes": 1801,
-      "sha256": "c626068ef18be59398e73adb42f2edb1a00d2e0578fa6233301e3055f4b8ee41"
+      "bytes": 3112,
+      "sha256": "fe34c8a758e222ab8b394ec9340bf2ea5888f84585f7ab371da7e4290381ee0c"
     },
     {
       "path": "backend/connection.py",
-      "bytes": 7682,
-      "sha256": "fb11cd042ee3b6d9f2fc793940dba8857d58f23d2f0af31379d32e46789d0675"
+      "bytes": 9139,
+      "sha256": "a66cc4ad9c8a7188483320efedcbe1b8e03146886f28ef608787e7ac7940eac2"
     },
     {
       "path": "backend/dashboard_assets.json",
@@ -239,8 +289,8 @@
     },
     {
       "path": "backend/local/server.py",
-      "bytes": 19201,
-      "sha256": "33273701d75bc491ff415e6a34595afdbe2f65cc6d6d1d448d6754ad65bd5462"
+      "bytes": 20122,
+      "sha256": "a106fc3e54b687b7e3d3df42cb85dc83c402513131ccd359214ab645656e85c6"
     },
     {
       "path": "backend/local/store.py",
@@ -334,13 +384,18 @@
     },
     {
       "path": "docs/README.md",
-      "bytes": 2665,
-      "sha256": "674a4a324a2510a363c218ab2a88a2dc879873a4635a9e48b8a93b002d553825"
+      "bytes": 2888,
+      "sha256": "6287a894956dfcbe91bad8f7a920c139e3838fdc1c572ac06729fdaf8bfc1aea"
     },
     {
       "path": "docs/backend-verification.md",
-      "bytes": 6301,
-      "sha256": "446adefe531598c14ee139bf24b72cf62b564115e9474874685e70a1464c5d2c"
+      "bytes": 6728,
+      "sha256": "f1c0199bb551046a822c7bfdd2b80a61d1ad5b0b9210b8869f1eec2761a4e3e6"
+    },
+    {
+      "path": "docs/bucket-backend.md",
+      "bytes": 2260,
+      "sha256": "1aeee3e8568660b617b084c970250c0fa9dc89f80377801dcbd57ecc125f7131"
     },
     {
       "path": "docs/compatibility.md",
@@ -349,8 +404,8 @@
     },
     {
       "path": "docs/dependency-security.md",
-      "bytes": 3241,
-      "sha256": "c3b16df041f5681b85a819e13a8f331e6e14231607fdae42588820f7dbc7bfe1"
+      "bytes": 3408,
+      "sha256": "a2f41216b98d052ad4f3136ee71799927a84620efeed906577645dd57dfb0d00"
     },
     {
       "path": "docs/distributed-logging.md",
@@ -374,8 +429,8 @@
     },
     {
       "path": "docs/local-backend.md",
-      "bytes": 8585,
-      "sha256": "08f3b7b29184eb129ec4b2ea35a9ddf12cb574602ef8fc765a4a63bdacb41b0a"
+      "bytes": 8594,
+      "sha256": "d0c984e2caa8db4dd767231e34c92b2e735d9e3a469242593a9ae45d7bce9790"
     },
     {
       "path": "docs/python-api-support.md",
@@ -454,8 +509,8 @@
     },
     {
       "path": "pyproject.toml",
-      "bytes": 1965,
-      "sha256": "69c7c63f52ca622c5727096a0474b89f504e74cd68457123a4ab1263e5425ae9"
+      "bytes": 2023,
+      "sha256": "f572358141f47d268288b7ff60fa42c83e26d9a653d8e5b656b1633d1b685f75"
     },
     {
       "path": "sdk/backprop/__init__.py",
@@ -1264,8 +1319,8 @@
     },
     {
       "path": "sdk/backprop/run.py",
-      "bytes": 60508,
-      "sha256": "1348d5bce9d117d9c032f09b35e07194b767ffc10f579d477e0354e570f54dbf"
+      "bytes": 60510,
+      "sha256": "9f3e3760fc6d3a1bddef19c43ce282b59362602a977f6931ab699c43bac717d5"
     },
     {
       "path": "sdk/backprop/run_calls.py",
@@ -1434,8 +1489,8 @@
     },
     {
       "path": "sdk/backprop/transport.py",
-      "bytes": 20880,
-      "sha256": "a76482011a9eb5bf76f7713b1c3606f3e56e26d82a86ff87e4a1ad574beba5cf"
+      "bytes": 20996,
+      "sha256": "7a789f12a03da6ef8caf5ae679049df64e5b007989f08b63d3b650e2303cd3dd"
     },
     {
       "path": "sdk/backprop/unsupported.py",
@@ -1469,8 +1524,8 @@
     },
     {
       "path": "setup.py",
-      "bytes": 3051,
-      "sha256": "6b94f3e0c54f2b934fa366e775f5396ceb6d9f3614dfe2c89d2ebae53cc2437c"
+      "bytes": 3078,
+      "sha256": "7b6c59d2cc9d3d14c55de0f2df9f49170551f5eeca73491736813485427f537b"
     },
     {
       "path": "tests/annotation_reference_probe.py",
@@ -1619,8 +1674,8 @@
     },
     {
       "path": "tests/backend_acceptance.py",
-      "bytes": 13668,
-      "sha256": "d102f1a53ccf130d1eedd4ba4832bf8d7484d2afa3f8f550bb5de38a9dac89e7"
+      "bytes": 14178,
+      "sha256": "0e66cf172866491adec7cb77c0fde57f08b45822e42fd04a7a9e29f2076cb172"
     },
     {
       "path": "tests/browser_annotations_qa.mjs",
@@ -2526,6 +2581,11 @@
       "path": "tests/test_browser_foundry_proxy.mjs",
       "bytes": 3022,
       "sha256": "b31b92711b7ca992da7047dfb60d056727b1cd5d16764b3a237b3d0efc8a8677"
+    },
+    {
+      "path": "tests/test_bucket_backend.py",
+      "bytes": 25354,
+      "sha256": "adbfa04dd47c43cb14e7c6b65fc9fda10458945effc783b3e768b097603095ce"
     },
     {
       "path": "tests/test_capture_diagnostics.py",
@@ -3689,8 +3749,8 @@
     },
     {
       "path": "tools_check_release.py",
-      "bytes": 5243,
-      "sha256": "f48e2b17f4e6b0ff05dda0e72f78184aafd6c24beb29ef860dc4460ed62bee4e"
+      "bytes": 5298,
+      "sha256": "7d32b2648cb3d6c30163e06e89be7cda4271a49c8c3f7e54055fae6f013477b6"
     },
     {
       "path": "tools_smoke_release.py",

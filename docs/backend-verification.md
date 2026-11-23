@@ -67,6 +67,12 @@ large payloads, bounded ingestion work, ADC refresh, Google identity checks, and
 resource cleanup ledgers. Run it through `tools/firestore_emulator.py` with Java 21.
 See [GCP deployment](gcp-setup.md) for real-test setup and cleanup.
 
+The bucket backend runs the same SDK scenario through `--backend bucket --bucket-uri URI`.
+`tests/test_bucket_backend.py` runs it against a `file://` bucket and also covers
+create-only objects (file and fake GCS), error retry classes, dedupe and conflicts,
+gap-free offsets under concurrent writers, listing lookback and sweeps, the HTTP
+contract, and write-through stop requests. See the [bucket backend](bucket-backend.md).
+
 ## Focused acceptance commands
 
 ```bash
